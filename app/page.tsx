@@ -1,134 +1,30 @@
 import Image from "next/image";
 
-const navItems = [
-  { label: "About", href: "#about" },
-  { label: "Music", href: "#music" },
-  { label: "Live", href: "#live" },
-  { label: "Press", href: "#press" },
-  { label: "Contact", href: "#contact" },
-  { label: "Past Shows", href: "#shows" },
-];
-
-const heroImage =
-  "https://static.wixstatic.com/media/07688b_caf4bc71659d4e2099f53273f57bed66~mv2.jpg/v1/fit/w_960,h_668,q_90,enc_avif,quality_auto/07688b_caf4bc71659d4e2099f53273f57bed66~mv2.jpg";
-
-const galleryImages = [
-  {
-    src: "https://static.wixstatic.com/media/5a690c_22f0aa36686b4097a7d629a9d62d9bee~mv2.jpeg/v1/fit/w_960,h_642,q_90,enc_avif,quality_auto/5a690c_22f0aa36686b4097a7d629a9d62d9bee~mv2.jpeg",
-    alt: "Octopus Garage - Left",
-    width: 960,
-    height: 642,
-  },
-  {
-    src: "https://static.wixstatic.com/media/5a690c_100325cb8a004d689d5cfc535b1bba20~mv2.jpg/v1/fit/w_960,h_641,q_90,enc_avif,quality_auto/5a690c_100325cb8a004d689d5cfc535b1bba20~mv2.jpg",
-    alt: "Octopus Garage - Right",
-    width: 960,
-    height: 641,
-  },
-];
-
-const pressShots = [
-  {
-    src: "https://static.wixstatic.com/media/07688b_98e964817a1a4aae8ed7d6c4f0f13191~mv2.jpg/v1/fit/w_480,h_722,q_90,enc_avif,quality_auto/07688b_98e964817a1a4aae8ed7d6c4f0f13191~mv2.jpg",
-    width: 480,
-    height: 722,
-  },
-  {
-    src: "https://static.wixstatic.com/media/07688b_e7ee015eaa054a6482d9ad35bc5136b0~mv2.jpg/v1/fit/w_480,h_722,q_90,enc_avif,quality_auto/07688b_e7ee015eaa054a6482d9ad35bc5136b0~mv2.jpg",
-    width: 480,
-    height: 722,
-  },
-  {
-    src: "https://static.wixstatic.com/media/07688b_7c264075c3f54b0789d631a5d7b5f553~mv2.jpg/v1/fit/w_480,h_722,q_90,enc_avif,quality_auto/07688b_7c264075c3f54b0789d631a5d7b5f553~mv2.jpg",
-    width: 480,
-    height: 722,
-  },
-  {
-    src: "https://static.wixstatic.com/media/07688b_b1bc5dbe41b94c5097c75689eb88fbce~mv2.jpg/v1/fit/w_480,h_722,q_90,enc_avif,quality_auto/07688b_b1bc5dbe41b94c5097c75689eb88fbce~mv2.jpg",
-    width: 480,
-    height: 722,
-  },
-];
-
-const videos = [
-  {
-    title: "womp - Live @ Delirium Studios",
-    url: "https://www.youtube.com/embed/cYpXqDBsaho",
-    duration: "35:52",
-  },
-  {
-    title: "Filthy Dubstep Mix | womp @ Brooklyn Studio Sessions May 5, 2025",
-    url: "https://www.youtube.com/embed/XKHu_UzTXyc",
-    duration: "35:05",
-  },
-];
-
-const socialLinks = [
-  {
-    label: "Spotify",
-    href: "https://open.spotify.com/artist/64XV9aZxwoLuxf9tgvu9Pb?si=siQO86RCQBqQJ6EOjboM3w",
-  },
-  { label: "Instagram", href: "https://www.instagram.com/dj_womp" },
-  { label: "YouTube", href: "https://www.youtube.com/@djwomp" },
-];
-
-const pastShows = [
-  {
-    date: "Jun 01, 2024 - 10:00 PM to Jun 02, 2024 - 2:30 AM",
-    title: "Liminal Bass x DISTORT",
-    venue: "FirstLive, 219 Central Ave, Brooklyn, NY 11221, USA",
-    blurb: "4 heads are better than 2.",
-  },
-  {
-    date: "Nov 11, 2023 - 9:00 PM to Nov 12, 2023 - 1:30 AM",
-    title: "Liminal Bass Boiler Room",
-    venue: "FirstLive, 219 Central Ave, Brooklyn, NY 11221, USA",
-    blurb: "High-voltage energy all night long.",
-  },
-  {
-    date: "Sep 30, 2023 - 2:30 PM",
-    title: "Liminal Bass",
-    venue: "Brooklyn, Brooklyn, NY, USA",
-    blurb: "We are BACK on September 30th!!",
-  },
-  {
-    date: "Aug 05, 2023 - 3:00 PM to 8:00 PM",
-    title: "Liminal Messages 2",
-    venue: "East River Bar - Williamsburg, 97 S 6th St, Brooklyn, NY 11211, USA",
-    blurb: "2 Fast 2 Liminal",
-  },
-  {
-    date: "Apr 28, 2023 - 10:00 PM",
-    title: "Liminal Wonderland",
-    venue: "Brooklyn, 270 Meserole St, Brooklyn, NY 11206, USA",
-    blurb: 'Text "BASS" to +1 (855) 929-5156 for discounted tickets.',
-  },
-  {
-    date: "Feb 11, 2023 - 10:00 PM to Feb 12, 2023 - 2:30 AM",
-    title: "Liminal Messages",
-    venue: "Eris Evolution, 167 Graham Ave, Brooklyn, NY 11206, USA",
-    blurb:
-      "Bass, house, bass house, and a basement dance floor to ruin your Sunday morning. All are welcome.",
-  },
-  {
-    date: "Nov 11, 2022 - 11:00 PM to Nov 12, 2022 - 4:00 PM",
-    title: "The Queens Ball",
-    venue: "Liminal Space, 1080 Wyckoff Ave, Ridgewood, NY 11385, USA",
-    blurb:
-      "A night of dancing, friendship, and heart-stopping bass. Coming soon to a dingy warehouse near(ish) you.",
-  },
-];
+import {
+  galleryImages,
+  heroImage,
+  navItems,
+  pastShows,
+  pressShots,
+  socialLinks,
+  videos,
+} from "./page-data";
+import { PressGallery } from "@/components/press-gallery";
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-[#050505] text-zinc-100">
       <header className="sticky top-0 z-50 border-b border-white/5 bg-[#050505]/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-          <a
-            href="#"
-            className="text-xs font-semibold uppercase tracking-[0.4em] text-zinc-50"
-          >
-            womp
+          <a href="#" className="flex items-center gap-2">
+            <Image
+              src="/assets/logo_white.png"
+              alt="Womp"
+              width={160}
+              height={50}
+              priority
+            />
+            <span className="sr-only">womp</span>
           </a>
           <nav className="hidden items-center gap-8 text-sm font-medium md:flex">
             {navItems.map((item) => (
@@ -361,23 +257,8 @@ export default function Home() {
                 Request access
               </a>
             </div>
-            <div className="flex-1 grid gap-6 sm:grid-cols-2">
-              {pressShots.map((image) => (
-                <div
-                  key={image.src}
-                  className="overflow-hidden rounded-3xl border border-white/10 bg-black"
-                >
-                  <div className="relative aspect-[3/4]">
-                    <Image
-                      src={image.src}
-                      alt="Press shot of womp"
-                      fill
-                      sizes="(min-width: 1024px) 24vw, (min-width: 640px) 45vw, 100vw"
-                      className="object-cover transition duration-500 hover:scale-105"
-                    />
-                  </div>
-                </div>
-              ))}
+            <div className="flex-1">
+              <PressGallery images={pressShots} />
             </div>
           </div>
         </section>
