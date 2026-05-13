@@ -43,6 +43,22 @@ If credentials are not configured, the site degrades gracefully by reading the s
 
 **Production:** set these in your host's secret manager (Vercel Project Settings → Environment Variables, or the Cursor Cloud Agents secrets dashboard). Don't paste real values into chat or commits — rotate immediately if you do.
 
+### Instagram Graph API
+
+The Instagram stats panel pulls follower / following / post counts via the official Instagram Graph API (Instagram Login flow). To enable it:
+
+1. Make sure the `@wompbass` Instagram account is set to **Business** or **Creator** (personal accounts can't read stats).
+2. Register a Meta app at [developers.facebook.com/apps](https://developers.facebook.com/apps) (Business type) and add the **Instagram** product to it.
+3. Generate a long-lived (60-day) access token for `@wompbass` with the `instagram_business_basic` (or older `instagram_basic`) scope.
+
+Then set the token:
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `INSTAGRAM_ACCESS_TOKEN` | Yes (for live panel) | Long-lived access token. Server-only. |
+
+Token rotation: tokens expire after ~60 days. Rotate the env var before the window lapses (or wire up a cron that calls `GET https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=…` and pushes the new token back into the secret manager). When the token is missing or rejected, the Instagram tiles gracefully render `—` rather than breaking the page.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More
