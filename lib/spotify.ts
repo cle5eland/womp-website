@@ -78,7 +78,12 @@ export type SpotifyTopTrack = {
 
 export type SpotifyStatsBundle = {
   monthlyListeners: number | null;
-  followers: number;
+  /**
+   * Followers count from the official Web API, or `null` when the Web API
+   * was unreachable (no creds, transient failure). UI renders `null` as
+   * "—" rather than the misleading "0" the fallback artist object holds.
+   */
+  followers: number | null;
   /** Sum of playcounts across the top-tracks payload, or null if unavailable. */
   totalTrackedStreams: number | null;
 };
@@ -373,7 +378,11 @@ async function fetchArtistDataInner(
     topTracks,
     stats: {
       monthlyListeners,
-      followers: fallbackArtist.followers,
+      // Only surface the followers count when the official Web API actually
+      // returned it. The partner GraphQL path doesn't carry a followers
+      // figure, and the fallback artist object holds a sentinel `0` that
+      // would otherwise be rendered as a real "0 followers" in the UI.
+      followers: officialOk ? fallbackArtist.followers : null,
       totalTrackedStreams,
     },
     hasLiveData: officialOk || monthlyListeners !== null,
