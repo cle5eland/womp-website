@@ -3,12 +3,12 @@
 import { MotionConfig } from "framer-motion";
 
 /**
- * `reducedMotion="user"` lets framer-motion respect the OS-level
- * `prefers-reduced-motion: reduce` setting automatically — animations are
- * suppressed (values jump to their target) without the components having to
- * branch on the media query themselves. This avoids SSR/hydration mismatches
- * that occur when components manually call `useReducedMotion()` (which returns
- * `null`/`false` during SSR but the real value on the client).
+ * `reducedMotion="user"` makes Framer Motion honor `prefers-reduced-motion`
+ * by jumping animated values to their targets instead of tweening. Scroll
+ * sections use normal `initial` / `whileInView` props so content still reaches
+ * its visible end state; avoid branching on `useReducedMotion()` in children,
+ * which can leave elements stuck at `opacity: 0` when combined with
+ * undefined `animate` / `whileInView` during hydration.
  */
 export function MotionProviders({ children }: { children: React.ReactNode }) {
   return <MotionConfig reducedMotion="user">{children}</MotionConfig>;

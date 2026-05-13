@@ -402,6 +402,12 @@ export const getSpotifyArtistData = unstable_cache(
 export async function getSpotifyArtistDataSafe(
   artistId: string = SPOTIFY_ARTIST_ID,
 ): Promise<SpotifyArtistData | null> {
+  if (!process.env.SPOTIFY_CLIENT_ID?.trim() || !process.env.SPOTIFY_CLIENT_SECRET?.trim()) {
+    console.warn(
+      "[spotify] SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET not set — add them in Vercel Project Settings → Environment Variables (and locally in `.env.local`). See `.env.example`.",
+    );
+    return null;
+  }
   try {
     return await getSpotifyArtistData(artistId);
   } catch (err) {

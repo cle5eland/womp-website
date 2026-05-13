@@ -13,13 +13,11 @@ export const bookingEmail = "booking@djwomp.com";
 
 export const navItems = [
   { label: "Stats", href: "#stats" },
-  { label: "Release", href: "#release" },
   { label: "Shows", href: "#shows" },
   { label: "Listen", href: "#listen" },
   { label: "Bio", href: "#bio" },
   { label: "Press", href: "#press" },
   { label: "Video", href: "#video" },
-  { label: "List", href: "#mailing" },
 ] as const;
 
 /** Local hero (also overridable with `NEXT_PUBLIC_HERO_IMAGE_URL`). */
@@ -60,16 +58,9 @@ export function fallbackPressShots(): PressShot[] {
   return galleryImages.map((img) => ({ src: img.src, alt: img.alt }));
 }
 
-export const latestRelease = {
-  title: "Latest on DSPs",
-  subtitle: "Read My Lips · Smoke — add embed URI when you pick a lead single",
-  description:
-    "Spotlight your lead track or EP here. Swap `spotifyEmbedSrc` for a track, album, or episode URL from Spotify’s share dialog.",
-  spotifyEmbedSrc:
-    "https://open.spotify.com/embed/artist/64XV9aZxwoLuxf9tgvu9Pb?utm_source=generator&theme=0",
-  spotifyUrl:
-    "https://open.spotify.com/artist/64XV9aZxwoLuxf9tgvu9Pb?si=5fb3981b813a4035",
-} as const;
+/** Canonical artist page — embeds, fallbacks, and social links. */
+export const spotifyArtistUrl =
+  "https://open.spotify.com/artist/64XV9aZxwoLuxf9tgvu9Pb?si=5fb3981b813a4035";
 
 export const spotifyArtistEmbedSrc =
   "https://open.spotify.com/embed/artist/64XV9aZxwoLuxf9tgvu9Pb?utm_source=generator&theme=0";
@@ -78,10 +69,6 @@ export const spotifyArtistEmbedSrc =
 export const soundcloudPermalink = "wompbass";
 export const soundcloudProfileUrl = `https://soundcloud.com/${soundcloudPermalink}`;
 
-export const soundcloudEmbedSrc = `https://w.soundcloud.com/player/?url=${encodeURIComponent(
-  `https://api.soundcloud.com/resolve?url=${soundcloudProfileUrl}`,
-)}&color=%23080808&inverse=true&auto_play=false&show_user=true`;
-
 /** Instagram profile handle — used for the deep link + the stats panel header. */
 export const instagramPermalink = "wompbass";
 export const instagramProfileUrl = `https://www.instagram.com/${instagramPermalink}/`;
@@ -89,7 +76,7 @@ export const instagramProfileUrl = `https://www.instagram.com/${instagramPermali
 export const socialLinks = [
   {
     label: "Spotify",
-    href: "https://open.spotify.com/artist/64XV9aZxwoLuxf9tgvu9Pb?si=5fb3981b813a4035",
+    href: spotifyArtistUrl,
   },
   {
     label: "SoundCloud",
