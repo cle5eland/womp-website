@@ -5,6 +5,7 @@ import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
 
 import { PressGallery } from "@/components/press-gallery";
+import { SoundcloudStats } from "@/components/soundcloud-stats";
 import { SpotifyProfile } from "@/components/spotify-profile";
 import { SpotifyStats } from "@/components/spotify-stats";
 import type { PressShot } from "@/lib/epk-data";
@@ -20,12 +21,14 @@ import {
   pressKitDriveUrl,
   socialLinks,
   soundcloudEmbedSrc,
+  soundcloudProfileUrl,
   spotifyArtistEmbedSrc,
   upcomingShows,
   videos,
   videosDriveFolderUrl,
 } from "@/lib/epk-data";
 import type { SpotifyArtistData } from "@/lib/spotify";
+import type { SoundcloudStats as SoundcloudStatsRecord } from "@/lib/soundcloud-types";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 28 },
@@ -83,12 +86,24 @@ function SectionShell({
 export function EpkLanding({
   pressShots,
   spotify,
+  soundcloud,
 }: {
   pressShots: PressShot[];
   spotify: SpotifyArtistData | null;
+  soundcloud: SoundcloudStatsRecord | null;
 }) {
   const reduce = useReducedMotion();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Slim down the full SoundCloud record to the three numbers the UI tile
+  // grid actually displays. Mirrors how `spotify.stats` is passed below.
+  const soundcloudBundle = soundcloud
+    ? {
+        followers: soundcloud.followersCount,
+        totalPlays: soundcloud.totalPlays,
+        trackCount: soundcloud.trackCount,
+      }
+    : null;
 
   return (
     <div className="relative min-h-screen bg-[#050505] text-zinc-200">
@@ -259,7 +274,7 @@ export function EpkLanding({
           </motion.div>
         </section>
 
-        {/* Spotify streaming visualizer — live from Web API + partner overlay */}
+        {/* Streaming snapshot — Spotify + SoundCloud panels share this section */}
         <section
           id="stats"
           className="border-t border-white/[0.07] bg-[#080807] px-5 py-14 sm:px-8 md:px-12"
@@ -278,12 +293,20 @@ export function EpkLanding({
                 Streaming snapshot
               </h2>
             </motion.div>
-            <SpotifyStats
-              data={spotify?.stats ?? null}
-              artistName={spotify?.artist.name}
-              artistUrl={spotify?.artist.url}
-              fetchedAtLabel={spotify?.fetchedAtLabel}
-            />
+            <div className="grid gap-10">
+              <SpotifyStats
+                data={spotify?.stats ?? null}
+                artistName={spotify?.artist.name}
+                artistUrl={spotify?.artist.url}
+                fetchedAtLabel={spotify?.fetchedAtLabel}
+              />
+              <SoundcloudStats
+                data={soundcloudBundle}
+                artistName={soundcloud?.fullName ?? soundcloud?.username}
+                artistUrl={soundcloud?.profileUrl ?? soundcloudProfileUrl}
+                fetchedAtLabel={soundcloud?.fetchedAtLabel}
+              />
+            </div>
           </div>
         </section>
 
