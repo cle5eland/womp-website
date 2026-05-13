@@ -5,6 +5,7 @@ import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
 
 import { PressGallery } from "@/components/press-gallery";
+import { StatsGrid, type StatItem } from "@/components/stats-grid";
 import type { PressShot } from "@/lib/epk-data";
 import {
   bioDraft,
@@ -18,12 +19,17 @@ import {
   pressKitDriveUrl,
   socialLinks,
   soundcloudEmbedSrc,
+  soundcloudProfileUrl,
   spotifyArtistEmbedSrc,
   streamingStats,
   upcomingShows,
   videos,
   videosDriveFolderUrl,
 } from "@/lib/epk-data";
+import {
+  formatStatNumber,
+  type SoundcloudStats,
+} from "@/lib/soundcloud-types";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 28 },
@@ -78,9 +84,46 @@ function SectionShell({
   );
 }
 
-export function EpkLanding({ pressShots }: { pressShots: PressShot[] }) {
+export function EpkLanding({
+  pressShots,
+  soundcloudStats,
+}: {
+  pressShots: PressShot[];
+  soundcloudStats: SoundcloudStats | null;
+}) {
   const reduce = useReducedMotion();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const overviewStats: StatItem[] = [
+    {
+      label: "Spotify monthly listeners",
+      value: streamingStats.spotifyMonthlyListeners,
+    },
+    {
+      label: "Spotify followers",
+      value: streamingStats.spotifyFollowers,
+    },
+    {
+      label: "SoundCloud followers",
+      value: soundcloudStats
+        ? formatStatNumber(soundcloudStats.followersCount)
+        : streamingStats.soundcloudFollowers,
+    },
+    {
+      label: "Instagram",
+      value: streamingStats.instagramFollowers,
+    },
+  ];
+
+  const soundcloudFootnoteParts = soundcloudStats
+    ? [
+        soundcloudStats.fullName ?? "womp",
+        `@${soundcloudStats.permalink}`,
+        soundcloudStats.city
+          ? `${soundcloudStats.city}${soundcloudStats.countryCode ? `, ${soundcloudStats.countryCode}` : ""}`
+          : null,
+      ].filter(Boolean)
+    : null;
 
   return (
     <div className="relative min-h-screen bg-[#050505] text-zinc-200">
@@ -251,51 +294,82 @@ export function EpkLanding({ pressShots }: { pressShots: PressShot[] }) {
           </motion.div>
         </section>
 
-        {/* Streaming & social numbers */}
+        {/* Streaming & social numbers (overview) */}
         <section
           id="stats"
           className="border-t border-white/[0.07] bg-[#080807] px-5 py-14 sm:px-8 md:px-12"
         >
-          <div className="mx-auto grid max-w-6xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              {
-                label: "Spotify monthly listeners",
-                value: streamingStats.spotifyMonthlyListeners,
-              },
-              {
-                label: "Spotify followers",
-                value: streamingStats.spotifyFollowers,
-              },
-              {
-                label: "SoundCloud",
-                value: streamingStats.soundcloudFollowers,
-              },
-              {
-                label: "Instagram",
-                value: streamingStats.instagramFollowers,
-              },
-            ].map((stat, i) => (
-              <motion.div
-                key={stat.label}
-                initial={reduce ? false : { opacity: 0, y: 12 }}
-                whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.05 * i, duration: 0.4 }}
-                className="border border-white/[0.09] bg-black/50 p-6"
-              >
-                <p className="text-[9px] font-medium uppercase tracking-[0.35em] text-zinc-500">
-                  {stat.label}
-                </p>
-                <p className="font-display mt-3 text-4xl text-white sm:text-5xl">
-                  {stat.value}
-                </p>
-              </motion.div>
-            ))}
-          </div>
-          <p className="mx-auto mt-6 max-w-6xl text-center text-[10px] uppercase tracking-[0.2em] text-zinc-600">
-            {streamingStats.statsNote} · Last updated {streamingStats.lastUpdated}
-          </p>
+          <StatsGrid
+            items={overviewStats}
+            footnote={`${streamingStats.statsNote} · Last updated ${
+              soundcloudStats
+                ? new Date(soundcloudStats.fetchedAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })
+                : streamingStats.lastUpdated
+            }`}
+          />
         </section>
+
+        {/* SoundCloud — same card UI as the overview, scoped to SoundCloud data */}
+        {soundcloudStats ? (
+          <section
+            id="soundcloud-stats"
+            className="border-t border-white/[0.07] bg-[#0a0908] px-5 py-14 sm:px-8 md:px-12"
+          >
+            <StatsGrid
+              kicker="SoundCloud"
+              kickerClassName="text-[#ff5500]"
+              items={[
+                {
+                  label: "Followers",
+                  value: formatStatNumber(soundcloudStats.followersCount),
+                  href: soundcloudStats.profileUrl || soundcloudProfileUrl,
+                },
+                {
+                  label: "Tracks",
+                  value: formatStatNumber(soundcloudStats.trackCount),
+                  sub:
+                    soundcloudStats.playlistCount > 0
+                      ? `${formatStatNumber(soundcloudStats.playlistCount)} playlist${
+                          soundcloudStats.playlistCount === 1 ? "" : "s"
+                        }`
+                      : undefined,
+                  href: soundcloudStats.profileUrl || soundcloudProfileUrl,
+                },
+                {
+                  label: "Total plays",
+                  value: formatStatNumber(soundcloudStats.totalPlays, {
+                    compact: true,
+                  }),
+                  sub: soundcloudStats.topTrack
+                    ? `Top: ${soundcloudStats.topTrack.title}`
+                    : undefined,
+                  href: soundcloudStats.topTrack?.permalinkUrl,
+                },
+                {
+                  label: "Likes on tracks",
+                  value: formatStatNumber(soundcloudStats.totalTrackLikes, {
+                    compact: true,
+                  }),
+                  sub:
+                    soundcloudStats.totalTrackReposts > 0
+                      ? `${formatStatNumber(soundcloudStats.totalTrackReposts, {
+                          compact: true,
+                        })} reposts`
+                      : undefined,
+                },
+              ]}
+              footnote={
+                soundcloudFootnoteParts
+                  ? `${soundcloudFootnoteParts.join(" · ")} · Live from soundcloud.com`
+                  : undefined
+              }
+            />
+          </section>
+        ) : null}
 
         <SectionShell id="release" kicker="Out now" title={latestRelease.title}>
           <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:items-start">
