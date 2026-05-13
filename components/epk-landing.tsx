@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
 
+import { InstagramStats } from "@/components/instagram-stats";
 import { PressGallery } from "@/components/press-gallery";
 import { SoundcloudStats } from "@/components/soundcloud-stats";
 import { SpotifyProfile } from "@/components/spotify-profile";
@@ -15,6 +16,7 @@ import {
   galleryImages,
   heroImage,
   heroImageUnoptimized,
+  instagramProfileUrl,
   latestRelease,
   logoImage,
   navItems,
@@ -27,6 +29,7 @@ import {
   videos,
   videosDriveFolderUrl,
 } from "@/lib/epk-data";
+import type { InstagramStats as InstagramStatsRecord } from "@/lib/instagram-types";
 import type { SpotifyArtistData } from "@/lib/spotify";
 import type { SoundcloudStats as SoundcloudStatsRecord } from "@/lib/soundcloud-types";
 
@@ -87,10 +90,12 @@ export function EpkLanding({
   pressShots,
   spotify,
   soundcloud,
+  instagram,
 }: {
   pressShots: PressShot[];
   spotify: SpotifyArtistData | null;
   soundcloud: SoundcloudStatsRecord | null;
+  instagram: InstagramStatsRecord | null;
 }) {
   const reduce = useReducedMotion();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -102,6 +107,16 @@ export function EpkLanding({
         followers: soundcloud.followersCount,
         totalPlays: soundcloud.totalPlays,
         trackCount: soundcloud.trackCount,
+      }
+    : null;
+
+  // Same slimming for Instagram. Three nullable numbers so the UI can tell
+  // "no data" from a real `0` (see Spotify followers parallel).
+  const instagramBundle = instagram
+    ? {
+        followers: instagram.followersCount,
+        following: instagram.followsCount,
+        posts: instagram.mediaCount,
       }
     : null;
 
@@ -305,6 +320,12 @@ export function EpkLanding({
                 artistName={soundcloud?.fullName ?? soundcloud?.username}
                 artistUrl={soundcloud?.profileUrl ?? soundcloudProfileUrl}
                 fetchedAtLabel={soundcloud?.fetchedAtLabel}
+              />
+              <InstagramStats
+                data={instagramBundle}
+                artistName={instagram?.name ?? instagram?.username}
+                artistUrl={instagram?.profileUrl ?? instagramProfileUrl}
+                fetchedAtLabel={instagram?.fetchedAtLabel}
               />
             </div>
           </div>
