@@ -82,6 +82,10 @@ export const soundcloudEmbedSrc = `https://w.soundcloud.com/player/?url=${encode
   `https://api.soundcloud.com/resolve?url=${soundcloudProfileUrl}`,
 )}&color=%23080808&inverse=true&auto_play=false&show_user=true`;
 
+/** Instagram profile handle — used for the deep link + the stats panel header. */
+export const instagramPermalink = "wompbass";
+export const instagramProfileUrl = `https://www.instagram.com/${instagramPermalink}/`;
+
 export const socialLinks = [
   {
     label: "Spotify",
@@ -91,17 +95,29 @@ export const socialLinks = [
     label: "SoundCloud",
     href: soundcloudProfileUrl,
   },
-  { label: "Instagram", href: "https://www.instagram.com/dj_womp/" },
+  { label: "Instagram", href: instagramProfileUrl },
   { label: "YouTube", href: "https://www.youtube.com/@djwomp" },
   { label: "Site", href: "https://www.djwomp.com/" },
 ] as const;
 
 export const upcomingShows = [
   {
-    date: "TBA",
-    city: "Seattle / NYC",
-    venue: "Add confirmed dates in lib/epk-data.ts",
-    note: "Replace with ticket links when live.",
+    date: "May 22, 2026",
+    city: "Brooklyn, NY",
+    venue: "The Meadows · w/ SoDown",
+    note: "On The Air Tour stop in Brooklyn.",
+  },
+  {
+    date: "Aug 6–9, 2026",
+    city: "Evansburg, AB",
+    venue: "Friendzy Fest · Rangeton Park",
+    note: "Three-stage bass music festival on the Pembina River, 18+.",
+  },
+  {
+    date: "Aug 28–30, 2026",
+    city: "Union, WV",
+    venue: "Mountain Wubz · Nightfall Ridge",
+    note: "Southern West Virginia's bass-leaning EDM festival.",
   },
 ] as const;
 
@@ -119,8 +135,14 @@ export const videos = [
 ] as const;
 
 export const bioDraft = {
-  elevator:
-    "I'm womp, a dubstep producer and DJ based in Seattle, WA. I've been steadily building a following through releases like Read My Lips and Smoke and by throwing grassroots bass events in NYC and Seattle. Along the way, I've shared the stage with artists like TVBOO, Chef Boyarbeatz, Shanghai Doom, Pierce, SubDocta, and Stylust. My sound is heavily influenced by LYNY, Peekaboo, and Xotix.",
-  placeholder:
-    "Long-form bio, quotes, and press bullets will live here — we'll shape this section together.",
+  /** Headline paragraph — rendered with the accent left-rule. */
+  lead:
+    "Every journey has a beginning, but this one starts in a sweaty, space-octopus-painted garage. Five twenty-somethings on the wrong side of a year of social distancing flail to a clipped 808. In the distance, sirens.",
+  /** Body paragraphs — rendered as regular long-form copy. */
+  body: [
+    "This might be an atypical origin story, but for Quin Thompson — aka womp — these were atypical times. His recently discovered taste for west coast bass was cut short by a global pandemic, and the Asheville, North Carolina native found himself on the other side of the country, bumping Griz and Subtronics on first-gen Airpods, and missing home.",
+    "Hence, octopus garage. Two Amazon par lights, a fog machine, and a woefully underpowered 10-inch PA later, womp had his first gig and, more importantly, his first fans. Endless energy on \u201Cstage\u201D complemented a yee-haw approach to performance, and eventually the one-car garage wouldn\u2019t cut it anymore.",
+    "Since then, womp has grown from garage raves into a rising force in the dubstep scene. Through steady releases, including his first single on SubCarbon Records (Ganja White Night\u2019s label), he\u2019s racked up almost half a million streams on his music. Along the way, he\u2019s shared the stage with Jkyl & Hyde, TVBOO, Chef Boyarbeatz, Shanghai Doom, Pierce, SubDocta, Stylust, and others, and built up a sonic profile heavily influenced by LYNY, Peekaboo, and Xotix.",
+    "But even though the venue, the speakers, and the crowd have grown, that garage is still at the center of everything \u2014 and womp seeks to replicate that simple, yet so human experience every time he gets on stage.",
+  ],
 } as const;

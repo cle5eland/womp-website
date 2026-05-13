@@ -16,36 +16,44 @@ import {
  * and SoundCloud panels on the EPK so the platforms stay visually parallel.
  */
 
-const formatCompact = (n: number | null | undefined): string =>
+/**
+ * Compact stat formatting with ceiling rounding:
+ *   - Values < 1000 render as integers (14, 287).
+ *   - Values >= 1000 render with the standard "K" / "M" suffix.
+ *   - The number is rounded **up** rather than to-nearest, so 292,475 → 293K
+ *     instead of 292K. The user explicitly asked for round-up.
+ *   - No decimals: 292,475 → 293K, 1,584 → 2K, 1,200,000 → 2M. Consistent
+ *     with the visual style elsewhere on the page.
+ */
+const formatStat = (n: number | null | undefined): string =>
   n == null
     ? "—"
     : new Intl.NumberFormat("en-US", {
         notation: "compact",
-        maximumFractionDigits: 1,
+        maximumFractionDigits: 0,
+        roundingMode: "ceil",
       }).format(n);
-
-const formatFull = (n: number | null | undefined): string =>
-  n == null ? "—" : new Intl.NumberFormat("en-US").format(n);
 
 /**
  * Animated count-up that uses `useInView` to start once visible. Server
  * renders a static, pre-formatted value so hydration is stable; client takes
  * over and animates from 0 → target.
+ *
+ * Formatting is shared across all stat tiles via `formatStat` so the Spotify,
+ * SoundCloud, and Instagram panels stay visually consistent.
  */
 export function Counter({
   value,
   durationSec = 1.4,
-  compact = false,
 }: {
   value: number | null;
   durationSec?: number;
-  compact?: boolean;
 }) {
   const ref = useRef<HTMLSpanElement | null>(null);
   const inView = useInView(ref, { once: true, margin: "-20%" });
   const motionValue = useMotionValue(value ?? 0);
   const display = useTransform(motionValue, (latest) =>
-    compact ? formatCompact(Math.round(latest)) : formatFull(Math.round(latest)),
+    formatStat(Math.round(latest)),
   );
 
   useEffect(() => {
@@ -71,7 +79,6 @@ export function StatTile({
   value,
   delay = 0,
   highlight = false,
-  compact = false,
   footnote,
   /** Tailwind classes for the highlight border + tint. Defaults to site accent. */
   highlightBorderClass = "border-[var(--accent)]/35 bg-[var(--accent)]/[0.04] glow-box",
@@ -85,7 +92,6 @@ export function StatTile({
   value: number | null;
   delay?: number;
   highlight?: boolean;
-  compact?: boolean;
   footnote?: string;
   highlightBorderClass?: string;
   highlightTextClass?: string;
@@ -111,7 +117,7 @@ export function StatTile({
           (highlight ? highlightTextClass : "text-white")
         }
       >
-        <Counter value={value} compact={compact} />
+        <Counter value={value} />
       </p>
       <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.3em] text-zinc-400">
         {label}

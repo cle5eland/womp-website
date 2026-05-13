@@ -34,7 +34,6 @@ export function SoundcloudStats({
   const isLive = data !== null;
   const followers = data?.followers ?? null;
   const plays = data?.totalPlays ?? null;
-  const tracks = data?.trackCount ?? null;
 
   return (
     <div className="grid gap-6">
@@ -67,7 +66,7 @@ export function SoundcloudStats({
         ) : null}
       </motion.div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <StatTile
           kicker="Audience"
           label="Followers"
@@ -78,19 +77,12 @@ export function SoundcloudStats({
           kicker="All-time"
           label="Total plays"
           value={plays}
-          compact
           delay={0.07}
           highlight
           highlightBorderClass={SC_HIGHLIGHT_BORDER}
           highlightTextClass={SC_HIGHLIGHT_TEXT}
           highlightRuleClass={SC_HIGHLIGHT_RULE}
           footnote="Sum of playback counts across the catalog on SoundCloud."
-        />
-        <StatTile
-          kicker="Catalog"
-          label="Tracks"
-          value={tracks}
-          delay={0.14}
         />
       </div>
 

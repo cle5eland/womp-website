@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
 
+import { InstagramStats } from "@/components/instagram-stats";
 import { PressGallery } from "@/components/press-gallery";
 import { SoundcloudStats } from "@/components/soundcloud-stats";
 import { SpotifyProfile } from "@/components/spotify-profile";
@@ -15,6 +16,7 @@ import {
   galleryImages,
   heroImage,
   heroImageUnoptimized,
+  instagramProfileUrl,
   latestRelease,
   logoImage,
   navItems,
@@ -27,6 +29,7 @@ import {
   videos,
   videosDriveFolderUrl,
 } from "@/lib/epk-data";
+import type { InstagramStats as InstagramStatsRecord } from "@/lib/instagram-types";
 import type { SpotifyArtistData } from "@/lib/spotify";
 import type { SoundcloudStats as SoundcloudStatsRecord } from "@/lib/soundcloud-types";
 
@@ -87,10 +90,12 @@ export function EpkLanding({
   pressShots,
   spotify,
   soundcloud,
+  instagram,
 }: {
   pressShots: PressShot[];
   spotify: SpotifyArtistData | null;
   soundcloud: SoundcloudStatsRecord | null;
+  instagram: InstagramStatsRecord | null;
 }) {
   const reduce = useReducedMotion();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -102,6 +107,16 @@ export function EpkLanding({
         followers: soundcloud.followersCount,
         totalPlays: soundcloud.totalPlays,
         trackCount: soundcloud.trackCount,
+      }
+    : null;
+
+  // Same slimming for Instagram. Three nullable numbers so the UI can tell
+  // "no data" from a real `0` (see Spotify followers parallel).
+  const instagramBundle = instagram
+    ? {
+        followers: instagram.followersCount,
+        following: instagram.followsCount,
+        posts: instagram.mediaCount,
       }
     : null;
 
@@ -193,11 +208,14 @@ export function EpkLanding({
               className="object-cover object-center brightness-[1.08] contrast-[1.02] saturate-[1.05]"
               sizes="100vw"
             />
-            {/* Lighter scrim so the photo reads; text contrast handled by panel below */}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/55 to-[#050505]/20" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#050505]/55 via-transparent to-[#050505]/35" />
+            {/*
+              Soft fade at the very bottom only — keeps the join to the next
+              section from looking sharp without darkening the photo overall.
+              Previous full-canvas scrims removed at the user's request.
+            */}
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#050505] to-transparent" />
           </div>
-          <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-16 pt-32 sm:px-8 sm:pb-24 md:px-12 md:pb-28">
+          <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-8 pt-32 sm:px-8 sm:pb-10 md:px-12 md:pb-12">
             <div className="max-w-xl border border-white/15 bg-[#050505]/55 p-6 shadow-[0_0_80px_-20px_rgba(0,0,0,0.9)] backdrop-blur-md sm:p-8">
               <div className="relative mb-6 h-14 w-44 sm:mb-8 sm:h-16 sm:w-52" aria-hidden>
                 <Image
@@ -265,7 +283,7 @@ export function EpkLanding({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.8, duration: 0.8 }}
-            className="relative z-10 mx-auto flex w-full max-w-6xl justify-center px-5 pb-8 sm:px-8"
+            className="relative z-10 mx-auto flex w-full max-w-6xl justify-center px-5 pb-4 sm:px-8"
             aria-hidden
           >
             <span className="text-[9px] uppercase tracking-[0.5em] text-zinc-600">
@@ -274,10 +292,10 @@ export function EpkLanding({
           </motion.div>
         </section>
 
-        {/* Streaming snapshot — Spotify + SoundCloud panels share this section */}
+        {/* Streaming snapshot — Spotify + SoundCloud + Instagram panels share this section */}
         <section
           id="stats"
-          className="border-t border-white/[0.07] bg-[#080807] px-5 py-14 sm:px-8 md:px-12"
+          className="border-t border-white/[0.07] bg-[#080807] px-5 py-10 sm:px-8 md:px-12"
         >
           <div className="mx-auto max-w-6xl">
             <motion.div
@@ -305,6 +323,12 @@ export function EpkLanding({
                 artistName={soundcloud?.fullName ?? soundcloud?.username}
                 artistUrl={soundcloud?.profileUrl ?? soundcloudProfileUrl}
                 fetchedAtLabel={soundcloud?.fetchedAtLabel}
+              />
+              <InstagramStats
+                data={instagramBundle}
+                artistName={instagram?.name ?? instagram?.username}
+                artistUrl={instagram?.profileUrl ?? instagramProfileUrl}
+                fetchedAtLabel={instagram?.fetchedAtLabel}
               />
             </div>
           </div>
@@ -418,11 +442,13 @@ export function EpkLanding({
               className="space-y-5 text-sm leading-relaxed text-zinc-400"
             >
               <p className="border-l-2 border-[var(--accent)]/60 pl-5 text-base text-zinc-300">
-                {bioDraft.elevator}
+                {bioDraft.lead}
               </p>
-              <p className="border border-dashed border-white/15 bg-black/30 p-5 text-zinc-500">
-                {bioDraft.placeholder}
-              </p>
+              {bioDraft.body.map((paragraph, i) => (
+                <p key={i} className="text-zinc-400">
+                  {paragraph}
+                </p>
+              ))}
             </motion.div>
             <motion.div
               initial={reduce ? false : { opacity: 0, y: 12 }}
