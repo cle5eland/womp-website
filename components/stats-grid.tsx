@@ -17,6 +17,8 @@ export type StatsGridProps = {
   footnote?: string;
   /** Optional uppercase kicker (e.g. "Spotify", "SoundCloud") shown above the grid. */
   kicker?: string;
+  /** When set, the kicker becomes an external link — used for source attribution. */
+  kickerHref?: string;
   /** Tailwind color class for the kicker — defaults to the site accent. */
   kickerClassName?: string;
   className?: string;
@@ -30,21 +32,31 @@ export function StatsGrid({
   items,
   footnote,
   kicker,
+  kickerHref,
   kickerClassName,
   className = "",
 }: StatsGridProps) {
   const reduce = useReducedMotion();
 
+  const kickerClass = `mb-5 inline-block text-[10px] font-semibold uppercase tracking-[0.45em] transition ${
+    kickerClassName ?? "text-[var(--accent)]"
+  }`;
+
   return (
     <div className={`mx-auto max-w-6xl ${className}`}>
       {kicker ? (
-        <p
-          className={`mb-5 text-[10px] font-semibold uppercase tracking-[0.45em] ${
-            kickerClassName ?? "text-[var(--accent)]"
-          }`}
-        >
-          {kicker}
-        </p>
+        kickerHref ? (
+          <a
+            href={kickerHref}
+            target="_blank"
+            rel="noreferrer"
+            className={`${kickerClass} hover:underline`}
+          >
+            {kicker}
+          </a>
+        ) : (
+          <p className={kickerClass}>{kicker}</p>
+        )
       ) : null}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {items.map((stat, i) => {

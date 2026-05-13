@@ -321,6 +321,7 @@ export function EpkLanding({
           >
             <StatsGrid
               kicker="SoundCloud"
+              kickerHref={soundcloudStats.profileUrl || soundcloudProfileUrl}
               kickerClassName="text-[#ff5500]"
               items={[
                 {
