@@ -18,6 +18,31 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Environment variables
+
+Copy `.env.example` to `.env.local` and fill in any values you want to use locally:
+
+```bash
+cp .env.example .env.local
+```
+
+`.env*` is already gitignored, so real secrets stay out of the repo.
+
+### SoundCloud API
+
+The SoundCloud stats panel pulls live data from the official SoundCloud API. To enable it, register an app at [developers.soundcloud.com](https://developers.soundcloud.com/docs/api/register-app) and set:
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `SOUNDCLOUD_CLIENT_ID` | Yes (for API path) | The client ID from your registered SoundCloud app. |
+| `SOUNDCLOUD_CLIENT_SECRET` | Yes (for API path) | The matching client secret. Server-only; never exposed to the browser. |
+
+The credentials are used server-side only (the module that reads them is marked `"server-only"`). Tokens are obtained via OAuth 2.1 client_credentials, cached in memory, and refreshed proactively to stay within SoundCloud's per-app rate limits (50 token requests per 12h).
+
+If credentials are not configured, the site degrades gracefully by reading the same fields from the public profile page's hydration JSON, so local dev still works without secrets.
+
+**Production:** set these in your host's secret manager (Vercel Project Settings → Environment Variables, or the Cursor Cloud Agents secrets dashboard). Don't paste real values into chat or commits — rotate immediately if you do.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More
