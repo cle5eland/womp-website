@@ -84,8 +84,13 @@ export const latestRelease = {
 export const spotifyArtistEmbedSrc =
   "https://open.spotify.com/embed/artist/64XV9aZxwoLuxf9tgvu9Pb?utm_source=generator&theme=0";
 
-export const soundcloudEmbedSrc =
-  "https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/resolve%3Furl%3Dhttps%253A//soundcloud.com/djwomp&color=%23080808&inverse=true&auto_play=false&show_user=true";
+/** SoundCloud profile permalink — used for live-stat fetching + deep links. */
+export const soundcloudPermalink = "wompbass";
+export const soundcloudProfileUrl = `https://soundcloud.com/${soundcloudPermalink}`;
+
+export const soundcloudEmbedSrc = `https://w.soundcloud.com/player/?url=${encodeURIComponent(
+  `https://api.soundcloud.com/resolve?url=${soundcloudProfileUrl}`,
+)}&color=%23080808&inverse=true&auto_play=false&show_user=true`;
 
 export const socialLinks = [
   {
@@ -94,7 +99,7 @@ export const socialLinks = [
   },
   {
     label: "SoundCloud",
-    href: "https://soundcloud.com/djwomp",
+    href: soundcloudProfileUrl,
   },
   { label: "Instagram", href: "https://www.instagram.com/dj_womp/" },
   { label: "YouTube", href: "https://www.youtube.com/@djwomp" },
