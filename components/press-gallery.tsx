@@ -93,7 +93,7 @@ export function PressGallery({
         {displayedImages.map((image, idx) => (
           <div
             key={`${idx}-${image?.src}`}
-            className="overflow-hidden rounded-3xl border border-white/10 bg-black transition hover:border-white/20"
+            className="overflow-hidden rounded-none border border-white/10 bg-black transition hover:border-white/25"
           >
             <div className="imageFade relative aspect-[3/4]">
               {image ? (
@@ -113,7 +113,7 @@ export function PressGallery({
         @keyframes fadeIn {
           from {
             opacity: 0;
-            transform: scale(1.015);
+            transform: scale(1.01);
           }
           to {
             opacity: 1;
@@ -122,7 +122,7 @@ export function PressGallery({
         }
 
         .imageFade {
-          animation: fadeIn 700ms ease;
+          animation: fadeIn 600ms ease;
         }
       `}</style>
     </>
