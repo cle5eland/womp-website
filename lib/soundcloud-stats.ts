@@ -1,5 +1,7 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
+
 import {
   getSoundcloudAccessToken,
   hasSoundcloudCredentials,
@@ -42,6 +44,24 @@ function asString(value: unknown): string | null {
 
 function asBool(value: unknown): boolean {
   return typeof value === "boolean" ? value : false;
+}
+
+/**
+ * Stable UTC-locked label used as `fetchedAtLabel`. Matches the formatter
+ * in `lib/spotify.ts` so the Spotify and SoundCloud "Updated …" strings
+ * read identically on the page.
+ */
+function formatFetchedAtLabel(date: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "UTC",
+    timeZoneName: "short",
+  }).format(date);
 }
 
 /**
@@ -247,6 +267,7 @@ async function fetchViaApi(
     rawTracks = [];
   }
   const agg = aggregateTracks(rawTracks);
+  const now = new Date();
 
   return {
     permalink,
@@ -273,7 +294,8 @@ async function fetchViaApi(
     totalTrackReposts: agg.totalTrackReposts,
     topTrack: agg.topTrack,
     recentTracks: agg.recentTracks,
-    fetchedAt: new Date().toISOString(),
+    fetchedAt: now.toISOString(),
+    fetchedAtLabel: formatFetchedAtLabel(now),
   };
 }
 
@@ -404,6 +426,7 @@ async function fetchViaHydration(
   }
   const agg = aggregateTracks(rawTracks);
 
+  const now = new Date();
   return {
     permalink,
     username: asString(user["username"]) ?? permalink,
@@ -424,7 +447,8 @@ async function fetchViaHydration(
     totalTrackReposts: agg.totalTrackReposts,
     topTrack: agg.topTrack,
     recentTracks: agg.recentTracks,
-    fetchedAt: new Date().toISOString(),
+    fetchedAt: now.toISOString(),
+    fetchedAtLabel: formatFetchedAtLabel(now),
   };
 }
 
@@ -439,7 +463,7 @@ export type FetchSoundcloudStatsOptions = {
   revalidateSeconds?: number;
 };
 
-export async function fetchSoundcloudStats(
+async function fetchSoundcloudStatsInner(
   options: FetchSoundcloudStatsOptions,
 ): Promise<SoundcloudStats | null> {
   const { permalink, revalidateSeconds = 60 * 30 } = options;
@@ -454,4 +478,42 @@ export async function fetchSoundcloudStats(
     }
   }
   return fetchViaHydration(permalink, profileUrl, revalidateSeconds);
+}
+
+/**
+ * Cached aggregate fetch — mirrors `getSpotifyArtistData` in `lib/spotify.ts`.
+ * Revalidates hourly and is tagged so we can invalidate from a webhook if
+ * needed.
+ */
+const cachedFetchSoundcloudStats = unstable_cache(
+  async (permalink: string) => fetchSoundcloudStatsInner({ permalink }),
+  ["soundcloud-stats"],
+  { revalidate: 3600, tags: ["soundcloud"] },
+);
+
+export async function fetchSoundcloudStats(
+  options: FetchSoundcloudStatsOptions,
+): Promise<SoundcloudStats | null> {
+  // unstable_cache only varies on serializable arguments; pass just the
+  // permalink and let `fetchSoundcloudStatsInner` apply its defaults.
+  return cachedFetchSoundcloudStats(options.permalink);
+}
+
+/**
+ * Safe wrapper that never throws — returns `null` on hard failure. Mirrors
+ * `getSpotifyArtistDataSafe` in `lib/spotify.ts` for symmetry at the call
+ * site (`app/page.tsx`).
+ */
+export async function getSoundcloudStatsSafe(
+  permalink: string,
+): Promise<SoundcloudStats | null> {
+  try {
+    return await fetchSoundcloudStats({ permalink });
+  } catch (err) {
+    console.warn(
+      "[soundcloud] fetchSoundcloudStats failed:",
+      (err as Error).message,
+    );
+    return null;
+  }
 }

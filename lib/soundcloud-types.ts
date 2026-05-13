@@ -43,7 +43,21 @@ export type SoundcloudStats = {
   totalTrackReposts: number;
   topTrack: SoundcloudTrack | null;
   recentTracks: SoundcloudTrack[];
+  /** ISO timestamp (UTC). */
   fetchedAt: string;
+  /** Pre-formatted UTC label safe to render in SSR + hydration. */
+  fetchedAtLabel: string;
+};
+
+/**
+ * Slim three-number bundle that the `SoundcloudStats` UI component consumes.
+ * Mirrors `SpotifyStatsBundle` in shape so the two panels can stay visually
+ * parallel without leaking the full server-side record to the client.
+ */
+export type SoundcloudStatsBundle = {
+  followers: number;
+  totalPlays: number;
+  trackCount: number;
 };
 
 /**

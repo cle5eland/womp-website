@@ -5,7 +5,9 @@ import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
 
 import { PressGallery } from "@/components/press-gallery";
-import { StatsGrid, type StatItem } from "@/components/stats-grid";
+import { SoundcloudStats } from "@/components/soundcloud-stats";
+import { SpotifyProfile } from "@/components/spotify-profile";
+import { SpotifyStats } from "@/components/spotify-stats";
 import type { PressShot } from "@/lib/epk-data";
 import {
   bioDraft,
@@ -21,15 +23,12 @@ import {
   soundcloudEmbedSrc,
   soundcloudProfileUrl,
   spotifyArtistEmbedSrc,
-  streamingStats,
   upcomingShows,
   videos,
   videosDriveFolderUrl,
 } from "@/lib/epk-data";
-import {
-  formatStatNumber,
-  type SoundcloudStats,
-} from "@/lib/soundcloud-types";
+import type { SpotifyArtistData } from "@/lib/spotify";
+import type { SoundcloudStats as SoundcloudStatsRecord } from "@/lib/soundcloud-types";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 28 },
@@ -86,43 +85,24 @@ function SectionShell({
 
 export function EpkLanding({
   pressShots,
-  soundcloudStats,
+  spotify,
+  soundcloud,
 }: {
   pressShots: PressShot[];
-  soundcloudStats: SoundcloudStats | null;
+  spotify: SpotifyArtistData | null;
+  soundcloud: SoundcloudStatsRecord | null;
 }) {
   const reduce = useReducedMotion();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const overviewStats: StatItem[] = [
-    {
-      label: "Spotify monthly listeners",
-      value: streamingStats.spotifyMonthlyListeners,
-    },
-    {
-      label: "Spotify followers",
-      value: streamingStats.spotifyFollowers,
-    },
-    {
-      label: "SoundCloud followers",
-      value: soundcloudStats
-        ? formatStatNumber(soundcloudStats.followersCount)
-        : streamingStats.soundcloudFollowers,
-    },
-    {
-      label: "Instagram",
-      value: streamingStats.instagramFollowers,
-    },
-  ];
-
-  const soundcloudFootnoteParts = soundcloudStats
-    ? [
-        soundcloudStats.fullName ?? "womp",
-        `@${soundcloudStats.permalink}`,
-        soundcloudStats.city
-          ? `${soundcloudStats.city}${soundcloudStats.countryCode ? `, ${soundcloudStats.countryCode}` : ""}`
-          : null,
-      ].filter(Boolean)
+  // Slim down the full SoundCloud record to the three numbers the UI tile
+  // grid actually displays. Mirrors how `spotify.stats` is passed below.
+  const soundcloudBundle = soundcloud
+    ? {
+        followers: soundcloud.followersCount,
+        totalPlays: soundcloud.totalPlays,
+        trackCount: soundcloud.trackCount,
+      }
     : null;
 
   return (
@@ -294,83 +274,41 @@ export function EpkLanding({
           </motion.div>
         </section>
 
-        {/* Streaming & social numbers (overview) */}
+        {/* Streaming snapshot — Spotify + SoundCloud panels share this section */}
         <section
           id="stats"
           className="border-t border-white/[0.07] bg-[#080807] px-5 py-14 sm:px-8 md:px-12"
         >
-          <StatsGrid
-            items={overviewStats}
-            footnote={`${streamingStats.statsNote} · Last updated ${
-              soundcloudStats
-                ? new Date(soundcloudStats.fetchedAt).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })
-                : streamingStats.lastUpdated
-            }`}
-          />
+          <div className="mx-auto max-w-6xl">
+            <motion.div
+              initial={reduce ? false : { opacity: 0, y: 12 }}
+              whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="mb-8 max-w-3xl"
+            >
+              <p className="text-[10px] font-medium uppercase tracking-[0.45em] text-[var(--accent)]">
+                Live
+              </p>
+              <h2 className="font-display mt-3 text-5xl uppercase leading-[0.95] text-white sm:text-6xl">
+                Streaming snapshot
+              </h2>
+            </motion.div>
+            <div className="grid gap-10">
+              <SpotifyStats
+                data={spotify?.stats ?? null}
+                artistName={spotify?.artist.name}
+                artistUrl={spotify?.artist.url}
+                fetchedAtLabel={spotify?.fetchedAtLabel}
+              />
+              <SoundcloudStats
+                data={soundcloudBundle}
+                artistName={soundcloud?.fullName ?? soundcloud?.username}
+                artistUrl={soundcloud?.profileUrl ?? soundcloudProfileUrl}
+                fetchedAtLabel={soundcloud?.fetchedAtLabel}
+              />
+            </div>
+          </div>
         </section>
-
-        {/* SoundCloud — same card UI as the overview, scoped to SoundCloud data */}
-        {soundcloudStats ? (
-          <section
-            id="soundcloud-stats"
-            className="border-t border-white/[0.07] bg-[#0a0908] px-5 py-14 sm:px-8 md:px-12"
-          >
-            <StatsGrid
-              kicker="SoundCloud"
-              kickerHref={soundcloudStats.profileUrl || soundcloudProfileUrl}
-              kickerClassName="text-[#ff5500]"
-              items={[
-                {
-                  label: "Followers",
-                  value: formatStatNumber(soundcloudStats.followersCount),
-                  href: soundcloudStats.profileUrl || soundcloudProfileUrl,
-                },
-                {
-                  label: "Tracks",
-                  value: formatStatNumber(soundcloudStats.trackCount),
-                  sub:
-                    soundcloudStats.playlistCount > 0
-                      ? `${formatStatNumber(soundcloudStats.playlistCount)} playlist${
-                          soundcloudStats.playlistCount === 1 ? "" : "s"
-                        }`
-                      : undefined,
-                  href: soundcloudStats.profileUrl || soundcloudProfileUrl,
-                },
-                {
-                  label: "Total plays",
-                  value: formatStatNumber(soundcloudStats.totalPlays, {
-                    compact: true,
-                  }),
-                  sub: soundcloudStats.topTrack
-                    ? `Top: ${soundcloudStats.topTrack.title}`
-                    : undefined,
-                  href: soundcloudStats.topTrack?.permalinkUrl,
-                },
-                {
-                  label: "Likes on tracks",
-                  value: formatStatNumber(soundcloudStats.totalTrackLikes, {
-                    compact: true,
-                  }),
-                  sub:
-                    soundcloudStats.totalTrackReposts > 0
-                      ? `${formatStatNumber(soundcloudStats.totalTrackReposts, {
-                          compact: true,
-                        })} reposts`
-                      : undefined,
-                },
-              ]}
-              footnote={
-                soundcloudFootnoteParts
-                  ? `${soundcloudFootnoteParts.join(" · ")} · Live from soundcloud.com`
-                  : undefined
-              }
-            />
-          </section>
-        ) : null}
 
         <SectionShell id="release" kicker="Out now" title={latestRelease.title}>
           <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:items-start">
@@ -441,26 +379,13 @@ export function EpkLanding({
         </SectionShell>
 
         <SectionShell id="listen" kicker="DSP" title="Stream">
-          <div className="grid gap-8 lg:grid-cols-2">
-            <motion.div
-              initial={reduce ? false : { opacity: 0, y: 14 }}
-              whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="glow-box border border-white/[0.1] bg-black/50 p-3"
-            >
-              <p className="mb-3 px-1 text-[10px] font-medium uppercase tracking-[0.35em] text-zinc-500">
-                Spotify
-              </p>
-              <iframe
-                title="Spotify artist embed"
-                src={spotifyArtistEmbedSrc}
-                width="100%"
-                height="400"
-                className="border-0"
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                loading="lazy"
-              />
-            </motion.div>
+          <div className="grid gap-10">
+            <SpotifyProfile
+              data={spotify}
+              embedSrc={spotifyArtistEmbedSrc}
+              fallbackArtistUrl={latestRelease.spotifyUrl}
+              maxTracks={5}
+            />
             <motion.div
               initial={reduce ? false : { opacity: 0, y: 14 }}
               whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
