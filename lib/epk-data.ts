@@ -82,6 +82,10 @@ export const soundcloudEmbedSrc = `https://w.soundcloud.com/player/?url=${encode
   `https://api.soundcloud.com/resolve?url=${soundcloudProfileUrl}`,
 )}&color=%23080808&inverse=true&auto_play=false&show_user=true`;
 
+/** Instagram profile handle — used for the deep link + the stats panel header. */
+export const instagramPermalink = "wompbass";
+export const instagramProfileUrl = `https://www.instagram.com/${instagramPermalink}/`;
+
 export const socialLinks = [
   {
     label: "Spotify",
@@ -91,7 +95,7 @@ export const socialLinks = [
     label: "SoundCloud",
     href: soundcloudProfileUrl,
   },
-  { label: "Instagram", href: "https://www.instagram.com/dj_womp/" },
+  { label: "Instagram", href: instagramProfileUrl },
   { label: "YouTube", href: "https://www.youtube.com/@djwomp" },
   { label: "Site", href: "https://www.djwomp.com/" },
 ] as const;
