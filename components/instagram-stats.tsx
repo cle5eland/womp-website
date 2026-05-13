@@ -36,8 +36,6 @@ export function InstagramStats({
 }: Props) {
   const isLive = data !== null;
   const followers = data?.followers ?? null;
-  const following = data?.following ?? null;
-  const posts = data?.posts ?? null;
 
   return (
     <div className="grid gap-6">
@@ -70,7 +68,7 @@ export function InstagramStats({
         ) : null}
       </motion.div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4">
         <StatTile
           kicker="Audience"
           label="Followers"
@@ -80,18 +78,6 @@ export function InstagramStats({
           highlightBorderClass={IG_HIGHLIGHT_BORDER}
           highlightTextClass={IG_HIGHLIGHT_TEXT}
           highlightRuleClass={IG_HIGHLIGHT_RULE}
-        />
-        <StatTile
-          kicker="Engagement"
-          label="Following"
-          value={following}
-          delay={0.07}
-        />
-        <StatTile
-          kicker="Catalog"
-          label="Posts"
-          value={posts}
-          delay={0.14}
         />
       </div>
 

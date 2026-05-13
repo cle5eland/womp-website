@@ -66,7 +66,7 @@ export function SpotifyStats({
         />
         <StatTile
           kicker="All-time"
-          label="Tracked streams"
+          label="Streams"
           value={streams}
           delay={0.07}
           footnote={
