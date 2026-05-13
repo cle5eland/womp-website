@@ -32,17 +32,8 @@ export const navItems = [
   { label: "List", href: "#mailing" },
 ] as const;
 
-/** Shared Drive file — keep “Anyone with the link” → Viewer. */
-export const heroDriveFileId = "1ZpB-9ngyEFnF-o7_Op_x7wWh-vEZgUzp";
-
-/** Canonical share link (same file as below). */
-export const heroDriveShareUrl = `https://drive.google.com/file/d/${heroDriveFileId}/view?usp=sharing`;
-
-/**
- * Direct image URL for Next/img. Thumbnail endpoint is usually most reliable for large files.
- * Override with `NEXT_PUBLIC_HERO_IMAGE_URL` (e.g. `/hero.jpg` hosted in `public/`).
- */
-const defaultHeroImage = `https://drive.google.com/thumbnail?id=${heroDriveFileId}&sz=w1920`;
+/** Local hero (also overridable with `NEXT_PUBLIC_HERO_IMAGE_URL`). */
+const defaultHeroImage = "/assets/hero.jpg";
 
 const envHeroUrl =
   typeof process !== "undefined"
@@ -51,7 +42,7 @@ const envHeroUrl =
 
 export const heroImage = envHeroUrl || defaultHeroImage;
 
-/** Google Drive blocks Next’s optimizer fetch; use native img decoding for Drive URLs. */
+/** Google Drive and similar hosts block Next’s optimizer fetch. */
 export const heroImageUnoptimized =
   heroImage.includes("drive.google.com") ||
   heroImage.includes("googleusercontent.com");
