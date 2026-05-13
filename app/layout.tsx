@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Bebas_Neue, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
+import { MotionProviders } from "@/components/motion-providers";
 
 const bebas = Bebas_Neue({
   weight: "400",
@@ -36,7 +37,7 @@ export default function RootLayout({
       <body
         className={`${bebas.variable} ${ibmMono.variable} ${ibmMono.className} antialiased`}
       >
-        {children}
+        <MotionProviders>{children}</MotionProviders>
       </body>
     </html>
   );

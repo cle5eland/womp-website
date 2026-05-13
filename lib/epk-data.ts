@@ -2,16 +2,6 @@
 
 export type PressShot = { src: string; alt: string };
 
-/** Update these as metrics change — wire to APIs later if desired. */
-export const streamingStats = {
-  spotifyMonthlyListeners: "—",
-  spotifyFollowers: "—",
-  soundcloudFollowers: "—",
-  instagramFollowers: "—",
-  statsNote: "Replace placeholders in lib/epk-data.ts or connect analytics.",
-  lastUpdated: "2026",
-} as const;
-
 export const pressKitDriveUrl =
   "https://drive.google.com/drive/folders/1zPmbzQlKLbTiZ1GcNuXYJxxsIQOAZWs2?usp=sharing";
 

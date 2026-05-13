@@ -5,6 +5,8 @@ import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
 
 import { PressGallery } from "@/components/press-gallery";
+import { SpotifyProfile } from "@/components/spotify-profile";
+import { SpotifyStats } from "@/components/spotify-stats";
 import type { PressShot } from "@/lib/epk-data";
 import {
   bioDraft,
@@ -19,11 +21,11 @@ import {
   socialLinks,
   soundcloudEmbedSrc,
   spotifyArtistEmbedSrc,
-  streamingStats,
   upcomingShows,
   videos,
   videosDriveFolderUrl,
 } from "@/lib/epk-data";
+import type { SpotifyArtistData } from "@/lib/spotify";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 28 },
@@ -78,7 +80,13 @@ function SectionShell({
   );
 }
 
-export function EpkLanding({ pressShots }: { pressShots: PressShot[] }) {
+export function EpkLanding({
+  pressShots,
+  spotify,
+}: {
+  pressShots: PressShot[];
+  spotify: SpotifyArtistData | null;
+}) {
   const reduce = useReducedMotion();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -251,50 +259,32 @@ export function EpkLanding({ pressShots }: { pressShots: PressShot[] }) {
           </motion.div>
         </section>
 
-        {/* Streaming & social numbers */}
+        {/* Spotify streaming visualizer — live from Web API + partner overlay */}
         <section
           id="stats"
           className="border-t border-white/[0.07] bg-[#080807] px-5 py-14 sm:px-8 md:px-12"
         >
-          <div className="mx-auto grid max-w-6xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              {
-                label: "Spotify monthly listeners",
-                value: streamingStats.spotifyMonthlyListeners,
-              },
-              {
-                label: "Spotify followers",
-                value: streamingStats.spotifyFollowers,
-              },
-              {
-                label: "SoundCloud",
-                value: streamingStats.soundcloudFollowers,
-              },
-              {
-                label: "Instagram",
-                value: streamingStats.instagramFollowers,
-              },
-            ].map((stat, i) => (
-              <motion.div
-                key={stat.label}
-                initial={reduce ? false : { opacity: 0, y: 12 }}
-                whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.05 * i, duration: 0.4 }}
-                className="border border-white/[0.09] bg-black/50 p-6"
-              >
-                <p className="text-[9px] font-medium uppercase tracking-[0.35em] text-zinc-500">
-                  {stat.label}
-                </p>
-                <p className="font-display mt-3 text-4xl text-white sm:text-5xl">
-                  {stat.value}
-                </p>
-              </motion.div>
-            ))}
+          <div className="mx-auto max-w-6xl">
+            <motion.div
+              initial={reduce ? false : { opacity: 0, y: 12 }}
+              whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="mb-8 max-w-3xl"
+            >
+              <p className="text-[10px] font-medium uppercase tracking-[0.45em] text-[var(--accent)]">
+                Live
+              </p>
+              <h2 className="font-display mt-3 text-5xl uppercase leading-[0.95] text-white sm:text-6xl">
+                Streaming snapshot
+              </h2>
+            </motion.div>
+            <SpotifyStats
+              data={spotify?.stats ?? null}
+              artistName={spotify?.artist.name}
+              artistUrl={spotify?.artist.url}
+              fetchedAtLabel={spotify?.fetchedAtLabel}
+            />
           </div>
-          <p className="mx-auto mt-6 max-w-6xl text-center text-[10px] uppercase tracking-[0.2em] text-zinc-600">
-            {streamingStats.statsNote} · Last updated {streamingStats.lastUpdated}
-          </p>
         </section>
 
         <SectionShell id="release" kicker="Out now" title={latestRelease.title}>
@@ -366,26 +356,13 @@ export function EpkLanding({ pressShots }: { pressShots: PressShot[] }) {
         </SectionShell>
 
         <SectionShell id="listen" kicker="DSP" title="Stream">
-          <div className="grid gap-8 lg:grid-cols-2">
-            <motion.div
-              initial={reduce ? false : { opacity: 0, y: 14 }}
-              whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="glow-box border border-white/[0.1] bg-black/50 p-3"
-            >
-              <p className="mb-3 px-1 text-[10px] font-medium uppercase tracking-[0.35em] text-zinc-500">
-                Spotify
-              </p>
-              <iframe
-                title="Spotify artist embed"
-                src={spotifyArtistEmbedSrc}
-                width="100%"
-                height="400"
-                className="border-0"
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                loading="lazy"
-              />
-            </motion.div>
+          <div className="grid gap-10">
+            <SpotifyProfile
+              data={spotify}
+              embedSrc={spotifyArtistEmbedSrc}
+              fallbackArtistUrl={latestRelease.spotifyUrl}
+              maxTracks={5}
+            />
             <motion.div
               initial={reduce ? false : { opacity: 0, y: 14 }}
               whileInView={reduce ? undefined : { opacity: 1, y: 0 }}

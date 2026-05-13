@@ -17,6 +17,26 @@ const nextConfig: NextConfig = {
         hostname: "lh3.googleusercontent.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "i.scdn.co",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "image-cdn-ak.spotifycdn.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "image-cdn-fa.spotifycdn.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "mosaic.scdn.co",
+        pathname: "/**",
+      },
     ],
   },
 };
