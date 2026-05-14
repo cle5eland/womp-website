@@ -107,6 +107,7 @@ export function FanHome({ spotify }: { spotify: SpotifyArtistData | null }) {
       <SiteHeader
         logoHref="/"
         navItems={fanNavItems}
+        showBookingContact
         instagramHref={instagramProfileUrl}
         spotifyHref={spotifyArtistUrl}
         soundcloudHref={soundcloudProfileUrl}
