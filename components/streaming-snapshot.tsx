@@ -1,11 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "framer-motion";
 import type { ReactNode } from "react";
 
 import { InstagramIcon, SoundcloudIcon, SpotifyIcon } from "@/components/platform-icons";
 import { EqualizerBars, StatTile } from "@/components/stat-tile";
-import { performancesSupportCopy, recordLabels } from "@/lib/epk-data";
+import { performancesSupportCopy, profileHighlightImage, recordLabels } from "@/lib/epk-data";
 import type { InstagramStatsBundle } from "@/lib/instagram-types";
 import type { SoundcloudStatsBundle } from "@/lib/soundcloud-types";
 import type { SpotifyStatsBundle } from "@/lib/spotify";
@@ -14,17 +15,22 @@ function ProfileIconLink({
   href,
   label,
   children,
+  compact = false,
 }: {
   href?: string;
   label: string;
   children: ReactNode;
+  compact?: boolean;
 }) {
+  const box = compact
+    ? "flex h-7 w-7 shrink-0 items-center justify-center rounded border border-white/10 bg-black/30 opacity-40"
+    : "flex h-8 w-8 shrink-0 items-center justify-center rounded border border-white/10 bg-black/30 opacity-40";
+  const linkBox = compact
+    ? "flex h-7 w-7 shrink-0 items-center justify-center rounded border border-white/15 bg-black/40 transition hover:border-white/35 hover:bg-white/[0.06]"
+    : "flex h-8 w-8 shrink-0 items-center justify-center rounded border border-white/15 bg-black/40 transition hover:border-white/35 hover:bg-white/[0.06]";
   if (!href) {
     return (
-      <span
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-white/10 bg-black/30 opacity-40"
-        aria-hidden
-      />
+      <span className={box} aria-hidden />
     );
   }
   return (
@@ -33,46 +39,58 @@ function ProfileIconLink({
       target="_blank"
       rel="noreferrer"
       aria-label={label}
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-white/15 bg-black/40 transition hover:border-white/35 hover:bg-white/[0.06]"
+      className={linkBox}
     >
       {children}
     </a>
   );
 }
 
+/** One row height for platform label + bars + profile button (all columns match). */
+const platformHeaderRow =
+  "flex h-9 shrink-0 items-center justify-between gap-2.5";
+
+const platformLabelClass =
+  "text-[8px] font-medium uppercase tracking-[0.28em]";
+
+/** Shared flex + stretch for highlight grid columns (width/height from the row on lg+). */
+const highlightsColumnBase =
+  "flex min-h-0 flex-col gap-3 rounded-lg border lg:h-full";
+
+const highlightsColumnPad = "p-3 sm:p-4";
+
+/** Padded shell — matches Spotify column layout behavior. */
+const highlightsColumnShell = `${highlightsColumnBase} ${highlightsColumnPad}`;
+
 /** Brand-tinted frame around each streaming platform column. */
-const spotifyFrame =
-  "flex h-full min-h-0 flex-col gap-4 rounded-lg border border-[#1ED760]/55 bg-[#1ED760]/[0.06] p-4 shadow-[0_0_40px_-16px_rgba(30,215,96,0.35)] sm:p-5";
+const spotifyFrame = `${highlightsColumnShell} border-[#1ED760]/55 bg-[#1ED760]/[0.06] shadow-[0_0_32px_-14px_rgba(30,215,96,0.35)]`;
 const scFrame =
-  "flex h-full min-h-0 flex-col gap-4 rounded-lg border border-[#ff5500]/55 bg-[#ff5500]/[0.06] p-4 shadow-[0_0_40px_-16px_rgba(255,85,0,0.3)] sm:p-5";
+  "flex min-h-0 flex-col gap-3 rounded-lg border border-[#ff5500]/55 bg-[#ff5500]/[0.06] p-3 shadow-[0_0_32px_-14px_rgba(255,85,0,0.3)] sm:p-4";
 const igFrame =
-  "flex h-full min-h-0 flex-col gap-4 rounded-lg border border-[#E1306C]/55 bg-[#E1306C]/[0.06] p-4 shadow-[0_0_40px_-16px_rgba(225,48,108,0.28)] sm:p-5";
+  "flex min-h-0 flex-col gap-3 rounded-lg border border-[#E1306C]/55 bg-[#E1306C]/[0.06] p-3 shadow-[0_0_32px_-14px_rgba(225,48,108,0.28)] sm:p-4";
 
 /** Single accent frame for Labels + Performances below the streaming row. */
 const labelsPerformancesFrame =
-  "rounded-lg border border-[var(--accent)]/45 bg-[var(--accent)]/[0.06] p-5 shadow-[0_0_48px_-18px_var(--accent-dim)] sm:p-6";
+  "rounded-lg border border-[var(--accent)]/45 bg-[var(--accent)]/[0.06] p-4 shadow-[0_0_40px_-16px_var(--accent-dim)] sm:p-5";
 
 type Props = {
   spotify: {
     stats: SpotifyStatsBundle | null;
     artistUrl?: string;
-    fetchedAtLabel?: string;
   };
   soundcloud: {
     data: SoundcloudStatsBundle | null;
     artistUrl?: string;
-    fetchedAtLabel?: string;
   };
   instagram: {
     data: InstagramStatsBundle | null;
     artistUrl?: string;
-    fetchedAtLabel?: string;
   };
 };
 
 /**
- * Highlights: three streaming lanes, then one shared accent box for Labels +
- * Performances.
+ * Highlights: profile + Spotify + stacked SoundCloud + Instagram in one grid on lg+.
+ * Profile is hidden below `md` (mobile). Equal-width columns on lg+; row height follows the tallest column.
  */
 export function StreamingSnapshot({
   spotify: sp,
@@ -93,144 +111,155 @@ export function StreamingSnapshot({
   const igFollowers = ig.data?.followers ?? null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ opacity: 1, y: 12 }}
         whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        className="grid gap-4 lg:grid-cols-3 lg:items-stretch lg:gap-5"
+        viewport={{ once: true, amount: 0.08 }}
+        className="grid min-h-0 gap-3 lg:grid-cols-3 lg:items-stretch lg:gap-4"
       >
-        {/* Spotify */}
-        <div className={spotifyFrame}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <EqualizerBars active={spLive} barClassName="bg-[#1ED760]" />
-              <p className="text-[9px] font-medium uppercase tracking-[0.32em] text-[#1ED760]">
-                Spotify
-              </p>
-            </div>
-            <ProfileIconLink href={sp.artistUrl} label="Open Spotify profile">
-              <SpotifyIcon className="h-4 w-4 text-[#1ED760]" />
-            </ProfileIconLink>
-          </div>
-
-          <div className="flex min-h-0 flex-1 flex-col divide-y divide-white/[0.08]">
-            <StatTile
-              bare
-              kicker="Right now"
-              label="Monthly listeners"
-              value={monthly}
-              delay={0}
+        {/* Same flex + stretch as Spotify column; hidden below md (matches hero overlay). */}
+        <div
+          className={`${highlightsColumnBase} max-md:hidden max-lg:h-auto overflow-hidden border-white/[0.10] bg-zinc-950/90 p-0 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]`}
+        >
+          <figure className="relative aspect-[3/4] w-full min-h-[12rem] min-w-0 max-lg:max-w-md max-lg:mx-auto lg:mx-0 lg:aspect-auto lg:h-full lg:min-h-0 lg:max-w-none lg:flex-1">
+            <Image
+              src={profileHighlightImage}
+              alt="womp"
+              fill
+              className="object-cover object-[center_18%]"
+              sizes="(max-width: 1024px) min(100vw, 28rem), 33vw"
             />
-            <StatTile
-              bare
-              kicker="All-time"
-              label="Streams"
-              value={streams}
-              delay={0.04}
-              footnote="Sum of catalog playcounts on Spotify."
-            />
-            <StatTile
-              bare
-              kicker="Audience"
-              label="Followers"
-              value={spFollowers}
-              delay={0.08}
-            />
-          </div>
-
-          {!spLive ? (
-            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-              Data unavailable — check Spotify creds.
-            </p>
-          ) : sp.fetchedAtLabel ? (
-            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-              Updated {sp.fetchedAtLabel}
-            </p>
-          ) : null}
+          </figure>
         </div>
 
-        {/* SoundCloud */}
-        <div className={scFrame}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <EqualizerBars active={scLive} barClassName="bg-[#ff5500]" />
-              <p className="text-[9px] font-medium uppercase tracking-[0.32em] text-[#ff5500]">
-                SoundCloud
-              </p>
-            </div>
-            <ProfileIconLink href={sc.artistUrl} label="Open SoundCloud profile">
-              <SoundcloudIcon className="h-[18px] w-[18px] text-[#ff5500]" />
-            </ProfileIconLink>
-          </div>
+        {/* Spotify — same shell + brand tint; flex growth on lg+ */}
+        <div className={`${spotifyFrame} min-h-0 max-lg:h-auto`}>
+              <div className={platformHeaderRow}>
+                <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                  <EqualizerBars active={spLive} barClassName="bg-[#1ED760]" compact />
+                  <p className={`${platformLabelClass} text-[#1ED760]`}>Spotify</p>
+                </div>
+                <ProfileIconLink href={sp.artistUrl} label="Open Spotify profile" compact>
+                  <SpotifyIcon className="h-3.5 w-3.5 text-[#1ED760]" />
+                </ProfileIconLink>
+              </div>
 
-          <div className="flex min-h-0 flex-1 flex-col divide-y divide-white/[0.08]">
-            <StatTile
-              bare
-              kicker="Audience"
-              label="Followers"
-              value={scFollowers}
-              delay={0.02}
-            />
-            <StatTile
-              bare
-              kicker="All-time"
-              label="Total plays"
-              value={scPlays}
-              delay={0.06}
-              footnote="Sum of playback counts across the catalog on SoundCloud."
-            />
-          </div>
+              <div className="flex min-h-0 max-lg:flex-none flex-col divide-y divide-white/[0.08] lg:flex-1">
+                <StatTile
+                  bare
+                  dense
+                  className="min-h-0 justify-start lg:flex-1 lg:basis-0 lg:justify-center"
+                  kicker="Right now"
+                  label="Monthly listeners"
+                  value={monthly}
+                  delay={0}
+                />
+                <StatTile
+                  bare
+                  dense
+                  className="min-h-0 justify-start lg:flex-1 lg:basis-0 lg:justify-center"
+                  kicker="All-time"
+                  label="Streams"
+                  value={streams}
+                  delay={0.04}
+                />
+                <StatTile
+                  bare
+                  dense
+                  className="min-h-0 justify-start lg:flex-1 lg:basis-0 lg:justify-center"
+                  kicker="Audience"
+                  label="Followers"
+                  value={spFollowers}
+                  delay={0.08}
+                />
+              </div>
 
-          {!scLive ? (
-            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-              Data unavailable — check SoundCloud creds.
-            </p>
-          ) : sc.fetchedAtLabel ? (
-            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-              Updated {sc.fetchedAtLabel}
-            </p>
-          ) : null}
+              {!spLive ? (
+                <p className="shrink-0 text-[9px] uppercase tracking-[0.2em] text-zinc-500">
+                  Data unavailable — check Spotify creds.
+                </p>
+              ) : null}
         </div>
 
-        {/* Instagram */}
-        <div className={igFrame}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <EqualizerBars active={igLive} barClassName="bg-[#E1306C]" />
-              <p className="text-[9px] font-medium uppercase tracking-[0.32em] text-[#E1306C]">
-                Instagram
-              </p>
-            </div>
-            <ProfileIconLink href={ig.artistUrl} label="Open Instagram profile">
-              <InstagramIcon className="h-4 w-4 text-[#E1306C]" />
-            </ProfileIconLink>
-          </div>
+        {/* SoundCloud + Instagram — natural height; column stretches with the row on lg+ */}
+        <div className="flex min-h-0 flex-col gap-3 max-lg:h-auto lg:h-full lg:justify-start">
+              <div className={scFrame}>
+                <div className={platformHeaderRow}>
+                  <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                    <EqualizerBars active={scLive} barClassName="bg-[#ff5500]" compact />
+                    <p className={`${platformLabelClass} text-[#ff5500]`}>SoundCloud</p>
+                  </div>
+                  <ProfileIconLink href={sc.artistUrl} label="Open SoundCloud profile" compact>
+                    <SoundcloudIcon className="h-[15px] w-[15px] text-[#ff5500]" />
+                  </ProfileIconLink>
+                </div>
 
-          <div className="flex min-h-0 flex-1 flex-col divide-y divide-white/[0.08]">
-            <StatTile bare kicker="Audience" label="Followers" value={igFollowers} delay={0.03} />
-          </div>
+                <div className="flex flex-col divide-y divide-white/[0.08]">
+                  <StatTile
+                    bare
+                    dense
+                    kicker="Audience"
+                    label="Followers"
+                    value={scFollowers}
+                    delay={0.02}
+                  />
+                  <StatTile
+                    bare
+                    dense
+                    kicker="All-time"
+                    label="Total plays"
+                    value={scPlays}
+                    delay={0.06}
+                  />
+                </div>
 
-          {!igLive ? (
-            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-              Data unavailable — check Instagram token.
-            </p>
-          ) : ig.fetchedAtLabel ? (
-            <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-              Updated {ig.fetchedAtLabel}
-            </p>
-          ) : null}
+                {!scLive ? (
+                  <p className="shrink-0 text-[9px] uppercase tracking-[0.2em] text-zinc-500">
+                    Data unavailable — check SoundCloud creds.
+                  </p>
+                ) : null}
+              </div>
+
+              <div className={igFrame}>
+                <div className={platformHeaderRow}>
+                  <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                    <EqualizerBars active={igLive} barClassName="bg-[#E1306C]" compact />
+                    <p className={`${platformLabelClass} text-[#E1306C]`}>Instagram</p>
+                  </div>
+                  <ProfileIconLink href={ig.artistUrl} label="Open Instagram profile" compact>
+                    <InstagramIcon className="h-3.5 w-3.5 text-[#E1306C]" />
+                  </ProfileIconLink>
+                </div>
+
+                <div className="flex min-h-0 flex-col divide-y divide-white/[0.08]">
+                  <StatTile
+                    bare
+                    dense
+                    kicker="Audience"
+                    label="Followers"
+                    value={igFollowers}
+                    delay={0.03}
+                  />
+                </div>
+
+                {!igLive ? (
+                  <p className="shrink-0 text-[9px] uppercase tracking-[0.2em] text-zinc-500">
+                    Data unavailable — check Instagram token.
+                  </p>
+                ) : null}
+              </div>
         </div>
       </motion.div>
 
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ opacity: 1, y: 12 }}
         whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
+        viewport={{ once: true, amount: 0.08 }}
         transition={{ delay: 0.05 }}
         className={labelsPerformancesFrame}
       >
-        <div className="grid gap-8 md:grid-cols-2 md:gap-10">
+        <div className="grid gap-6 md:grid-cols-2 md:gap-8">
           <div className="min-w-0 md:pr-2">
             <p className="text-[9px] font-medium uppercase tracking-[0.32em] text-[var(--accent)]">
               Labels

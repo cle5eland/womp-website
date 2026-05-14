@@ -53,6 +53,9 @@ export const heroImageUnoptimized =
   heroImage.includes("googleusercontent.com") ||
   (!envHeroUrl && heroImage.startsWith("/"));
 
+/** Highlights streaming row — portrait beside platform stats (`public/assets/profile_pic.png`). */
+export const profileHighlightImage = "/assets/profile_pic.png";
+
 /** White wordmark from djwomp.com (Wix CDN). */
 export const logoImage =
   "https://static.wixstatic.com/media/07688b_f734b451dfcb4a0e872d14265ea54f52~mv2.png/v1/fit/w_560,h_184,al_c,q_92,enc_avif,quality_auto/07688b_f734b451dfcb4a0e872d14265ea54f52~mv2.png";

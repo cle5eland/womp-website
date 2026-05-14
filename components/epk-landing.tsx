@@ -70,9 +70,9 @@ function SectionShell({
     >
       <div className="mx-auto max-w-6xl">
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 1, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
+          viewport={{ once: true, amount: 0.12 }}
           transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
           className="mb-10 max-w-3xl"
         >
@@ -154,8 +154,8 @@ export function EpkLanding({
     <div className="relative min-h-screen bg-[#050505] text-zinc-200">
       <div className="grain" aria-hidden />
 
-      <header className="fixed inset-x-0 top-0 z-40 border-b border-white/[0.08] bg-[#050505]/75 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8 md:px-12">
+      <header className="fixed inset-x-0 top-0 z-40 border-b border-white/[0.08] bg-[#050505]/75 backdrop-blur-none sm:backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top,0px))] sm:px-8 sm:pt-[max(1rem,env(safe-area-inset-top,0px))] md:px-12">
           <a href="#top" className="relative block h-8 w-32 shrink-0 sm:h-9 sm:w-36">
             <Image
               src={logoImage}
@@ -258,7 +258,7 @@ export function EpkLanding({
             */}
             <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#050505] to-transparent" />
           </div>
-          <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-8 pt-32 sm:px-8 sm:pb-10 md:px-12 md:pb-12">
+          <div className="relative z-10 mx-auto hidden w-full max-w-6xl px-5 pb-8 pt-32 sm:px-8 sm:pb-10 md:block md:px-12 md:pb-12">
             <div className="max-w-xl border border-white/15 bg-[#050505]/55 p-6 shadow-[0_0_80px_-20px_rgba(0,0,0,0.9)] backdrop-blur-md sm:p-8">
               <motion.p
                 custom={0}
@@ -274,9 +274,18 @@ export function EpkLanding({
                 initial="hidden"
                 animate="show"
                 variants={fadeUp}
-                className="mt-4 font-sans text-2xl font-bold lowercase leading-[1.05] tracking-[-0.04em] text-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.75)] sm:mt-5 sm:text-3xl md:text-4xl"
+                className="mt-4 block w-full min-w-0 sm:mt-5"
               >
-                womp
+                <span className="relative block h-14 w-44 shrink-0 sm:h-16 sm:w-52 md:h-[4.75rem] md:w-60">
+                  <Image
+                    src={logoImage}
+                    alt="womp"
+                    fill
+                    className="object-contain object-left drop-shadow-[0_2px_24px_rgba(0,0,0,0.75)]"
+                    sizes="(max-width: 640px) 176px, (max-width: 768px) 208px, 240px"
+                    priority
+                  />
+                </span>
               </motion.h1>
               <motion.p
                 custom={2}
@@ -287,22 +296,22 @@ export function EpkLanding({
               >
                 {heroTagline}
               </motion.p>
-            <motion.div
-              custom={3}
-              initial="hidden"
-              animate="show"
-              variants={fadeUp}
-              className="mt-8 flex flex-wrap gap-3"
-            >
-              <a
-                href={pressKitDriveUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="glow-box inline-flex items-center justify-center border border-[var(--accent)]/55 bg-[var(--accent)]/15 px-8 py-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--accent)] transition hover:bg-[var(--accent)]/25"
+              <motion.div
+                custom={3}
+                initial="hidden"
+                animate="show"
+                variants={fadeUp}
+                className="mt-8 flex flex-wrap gap-3"
               >
-                Download Press Kit
-              </a>
-            </motion.div>
+                <a
+                  href={pressKitDriveUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="glow-box inline-flex items-center justify-center border border-[var(--accent)]/55 bg-[var(--accent)]/15 px-8 py-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--accent)] transition hover:bg-[var(--accent)]/25"
+                >
+                  Download Press Kit
+                </a>
+              </motion.div>
             </div>
           </div>
           <motion.div
@@ -325,9 +334,9 @@ export function EpkLanding({
         >
           <div className="mx-auto max-w-6xl">
             <motion.div
-              initial={{ opacity: 0, y: 12 }}
+              initial={{ opacity: 1, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
+              viewport={{ once: true, amount: 0.12 }}
               className="mb-6 max-w-2xl"
             >
               <p className="text-[10px] font-medium uppercase tracking-[0.45em] text-[var(--accent)]">
@@ -341,17 +350,14 @@ export function EpkLanding({
               spotify={{
                 stats: spotify?.stats ?? null,
                 artistUrl: spotify?.artist.url,
-                fetchedAtLabel: spotify?.fetchedAtLabel,
               }}
               soundcloud={{
                 data: soundcloudBundle,
                 artistUrl: soundcloud?.profileUrl ?? soundcloudProfileUrl,
-                fetchedAtLabel: soundcloud?.fetchedAtLabel,
               }}
               instagram={{
                 data: instagramBundle,
                 artistUrl: instagram?.profileUrl ?? instagramProfileUrl,
-                fetchedAtLabel: instagram?.fetchedAtLabel,
               }}
             />
           </div>
@@ -359,9 +365,9 @@ export function EpkLanding({
 
         <SectionShell id="bio" kicker="Artist" title="Bio">
           <motion.div
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 1, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: true, amount: 0.12 }}
             className="max-w-3xl space-y-5 text-sm leading-relaxed text-zinc-400"
           >
             <p className="border-l-2 border-[var(--accent)]/60 pl-5 text-base text-zinc-300">
@@ -386,9 +392,9 @@ export function EpkLanding({
                   href={show.url}
                   target="_blank"
                   rel="noreferrer"
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 1, y: 10 }}
                   whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
+                  viewport={{ once: true, amount: 0.12 }}
                   transition={{ delay: 0.06 * i }}
                   className="group block border border-white/[0.09] bg-[#0a0a09] p-6 transition hover:border-[var(--accent)]/35 hover:bg-[#0d0d0c] sm:flex sm:flex-row sm:items-end sm:justify-between"
                 >
@@ -432,9 +438,9 @@ export function EpkLanding({
 
         <SectionShell id="video" kicker="Motion" title="Video clips">
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 1, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: true, amount: 0.12 }}
             className="mb-10 flex flex-col gap-4 border border-white/[0.09] bg-[#0a0a09] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
           >
             <p className="max-w-xl text-sm leading-relaxed text-zinc-400">
@@ -454,9 +460,9 @@ export function EpkLanding({
             {videos.map((video, i) => (
               <motion.article
                 key={video.url}
-                initial={{ opacity: 0, y: 16 }}
+                initial={{ opacity: 1, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
+                viewport={{ once: true, amount: 0.12 }}
                 transition={{ delay: 0.07 * i }}
                 className="overflow-hidden border border-white/[0.09] bg-black/60"
               >
@@ -487,9 +493,9 @@ export function EpkLanding({
           className="scroll-mt-24 border-t border-white/[0.07] bg-[#080807] px-5 py-16 sm:px-8 md:px-12"
         >
           <motion.div
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 1, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: true, amount: 0.12 }}
             className="mx-auto max-w-6xl border border-[var(--accent)]/25 bg-[var(--accent)]/[0.04] p-8 sm:p-10"
           >
             <h3 className="font-display text-4xl uppercase leading-tight text-white sm:text-5xl">
