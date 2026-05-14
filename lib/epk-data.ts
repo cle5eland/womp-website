@@ -127,7 +127,7 @@ export const upcomingShows = [
     city: "Brooklyn, NY",
     venue: "The Meadows · w/ SoDown",
     note: "On The Air Tour stop in Brooklyn.",
-    url: "https://www.axs.com/",
+    url: "https://kydlabs.com/e/EV64e63176-5c61-450a-895c-51f1aeed674c",
   },
   {
     date: "Aug 6–9, 2026",
@@ -135,7 +135,7 @@ export const upcomingShows = [
     city: "Evansburg, AB",
     venue: "Friendzy Fest · Rangeton Park",
     note: "Three-stage bass music festival on the Pembina River, 18+.",
-    url: "https://www.friendzyfest.com/",
+    url: "https://friendzyfest.ca/",
   },
   {
     date: "Aug 28–30, 2026",

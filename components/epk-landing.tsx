@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 
@@ -49,6 +49,39 @@ const fadeUp = {
     },
   }),
 };
+
+/** Matches Tailwind `lg` (1024px) — hero lock only below this width. */
+const MOBILE_HERO_MQ = "(max-width: 1023px)";
+
+/**
+ * Snapshot `window.innerHeight` once per relevant layout change on small viewports.
+ * iOS Safari changes `vh` / `dvh` / often `svh` as the URL bar hides while scrolling;
+ * we intentionally do **not** listen to `resize`, so the hero block stays one height.
+ */
+function useMobileHeroHeightLock() {
+  const [px, setPx] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const apply = () => {
+      if (!window.matchMedia(MOBILE_HERO_MQ).matches) {
+        setPx(null);
+        return;
+      }
+      setPx(window.innerHeight);
+    };
+
+    apply();
+    window.addEventListener("orientationchange", apply);
+    const mq = window.matchMedia(MOBILE_HERO_MQ);
+    mq.addEventListener("change", apply);
+    return () => {
+      window.removeEventListener("orientationchange", apply);
+      mq.removeEventListener("change", apply);
+    };
+  }, []);
+
+  return px;
+}
 
 function SectionShell({
   id,
@@ -150,6 +183,8 @@ export function EpkLanding({
   const todayYmd = localDateYmd(new Date());
   const futureShows = upcomingShows.filter((s) => s.endDate >= todayYmd);
 
+  const mobileHeroLockPx = useMobileHeroHeightLock();
+
   return (
     <div className="relative min-h-screen bg-[#050505] text-zinc-200">
       <div className="grain" aria-hidden />
@@ -239,8 +274,19 @@ export function EpkLanding({
       </header>
 
       <main id="top">
-        {/* Hero — fullscreen */}
-        <section className="relative flex min-h-screen min-h-[100svh] flex-col justify-end overflow-hidden">
+        {/* Hero — fullscreen; mobile height locked via useMobileHeroHeightLock */}
+        <section
+          className="relative flex max-lg:h-[100svh] max-lg:max-h-[100svh] flex-col justify-end overflow-hidden lg:min-h-screen lg:min-h-[100svh] lg:max-h-none"
+          style={
+            mobileHeroLockPx !== null
+              ? {
+                  height: mobileHeroLockPx,
+                  minHeight: mobileHeroLockPx,
+                  maxHeight: mobileHeroLockPx,
+                }
+              : undefined
+          }
+        >
           <div className="absolute inset-0">
             <Image
               src={heroImage}
@@ -496,14 +542,18 @@ export function EpkLanding({
             initial={{ opacity: 1, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.12 }}
-            className="mx-auto max-w-6xl border border-[var(--accent)]/25 bg-[var(--accent)]/[0.04] p-8 sm:p-10"
+            className="mx-auto max-w-6xl border border-[var(--accent)]/25 bg-[var(--accent)]/[0.04] p-8 sm:p-10 md:p-12"
           >
-            <h3 className="font-display text-4xl uppercase leading-tight text-white sm:text-5xl">
-              Full press kit and contact
-            </h3>
-            <div className="mt-8 grid gap-10 lg:grid-cols-2 lg:gap-12 lg:divide-x lg:divide-white/[0.08]">
-              <div className="min-w-0 lg:pr-10">
-                <p className="max-w-md text-sm text-zinc-500">
+            <div className="grid gap-12 md:grid-cols-2 md:items-start md:gap-0">
+              {/* Press kit — left */}
+              <div className="min-w-0 md:pr-8 lg:pr-12">
+                <p className="text-[10px] font-medium uppercase tracking-[0.45em] text-[var(--accent)]">
+                  Press
+                </p>
+                <h3 className="font-display mt-2 text-3xl uppercase leading-[0.95] text-white sm:text-4xl">
+                  Full press kit
+                </h3>
+                <p className="mt-4 max-w-md text-sm leading-relaxed text-zinc-500">
                   Logos, hi-res photos, and rider materials live in the shared drive.
                 </p>
                 <a
@@ -515,14 +565,19 @@ export function EpkLanding({
                   Google Drive
                 </a>
               </div>
-              <div className="min-w-0 lg:pl-10">
+
+              {/* Contact — right */}
+              <div className="min-w-0 border-t border-white/[0.08] pt-10 md:border-l md:border-t-0 md:pl-8 md:pt-0 lg:pl-12">
+                <p className="text-[10px] font-medium uppercase tracking-[0.45em] text-[var(--accent)]">
+                  Contact
+                </p>
                 <a
                   href={`mailto:${bookingEmail}`}
-                  className="block font-display text-3xl uppercase leading-tight tracking-wide text-white transition hover:text-[var(--accent)] sm:text-4xl md:text-5xl"
+                  className="mt-3 block font-display text-3xl uppercase leading-tight tracking-wide text-white transition hover:text-[var(--accent)] sm:text-4xl md:text-5xl"
                 >
                   {bookingEmail}
                 </a>
-                <p className="mt-4 max-w-xl text-sm text-zinc-500">
+                <p className="mt-5 max-w-md text-sm leading-relaxed text-zinc-500">
                   Bookings, press, and festival inquiries — include dates, capacity,
                   and production details when you write.
                 </p>
