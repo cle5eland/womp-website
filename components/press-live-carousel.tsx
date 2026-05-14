@@ -10,20 +10,30 @@ type Shot = { src: string; alt: string };
 const SLOT_INTERVAL_MS = [5200, 6100, 5750, 6800] as const;
 const SLOT_COUNT = 4;
 
+/** Uniform pick in `[0, n)` excluding `current` when `n > 1`. */
+function randomIndexDifferentFrom(current: number, n: number): number {
+  if (n <= 1) return 0;
+  const pick = Math.floor(Math.random() * (n - 1));
+  return pick < current ? pick : pick + 1;
+}
+
+function randomSlotIndices(n: number): number[] {
+  if (n <= 0) return Array.from({ length: SLOT_COUNT }, () => 0);
+  return Array.from({ length: SLOT_COUNT }, () => Math.floor(Math.random() * n));
+}
+
 type PressPhotoCarouselProps = {
   /** Press + live photos in one list — four cells rotate independently. */
   images: Shot[];
 };
 
 /**
- * Four-up photo grid: each cell advances through `images` on its own timer
- * (different intervals + starting offsets so swaps rarely line up).
+ * Four-up photo grid: each cell picks a random image on its own timer
+ * (different intervals so swaps rarely line up).
  */
 export function PressPhotoCarousel({ images }: PressPhotoCarouselProps) {
   const n = images.length;
-  const [slotIndex, setSlotIndex] = useState<number[]>(() =>
-    Array.from({ length: SLOT_COUNT }, (_, i) => (n > 0 ? i % n : 0)),
-  );
+  const [slotIndex, setSlotIndex] = useState<number[]>(() => randomSlotIndices(n));
   const [paused, setPaused] = useState(false);
 
   useEffect(() => {
@@ -36,7 +46,7 @@ export function PressPhotoCarousel({ images }: PressPhotoCarouselProps) {
 
   useEffect(() => {
     if (n === 0) return;
-    setSlotIndex(Array.from({ length: SLOT_COUNT }, (_, i) => i % n));
+    setSlotIndex(randomSlotIndices(n));
   }, [n]);
 
   useEffect(() => {
@@ -45,7 +55,8 @@ export function PressPhotoCarousel({ images }: PressPhotoCarouselProps) {
       window.setInterval(() => {
         setSlotIndex((prev) => {
           const next = [...prev];
-          next[slot] = (next[slot] + 1) % n;
+          const cur = next[slot] ?? 0;
+          next[slot] = randomIndexDifferentFrom(cur, n);
           return next;
         });
       }, ms),
