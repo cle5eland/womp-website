@@ -1,9 +1,9 @@
 /**
- * Client-safe SoundCloud types + pure helpers.
+ * Client-safe SoundCloud types.
  *
  * Anything that touches the SoundCloud network lives in `lib/soundcloud-stats.ts`
- * (which is `server-only`); this file holds only data shapes and pure
- * formatting so it can be imported from both server and client components.
+ * (which is `server-only`); this file holds only data shapes so it can be
+ * imported from both server and client components.
  */
 
 export type SoundcloudTrack = {
@@ -59,21 +59,3 @@ export type SoundcloudStatsBundle = {
   totalPlays: number;
   trackCount: number;
 };
-
-/**
- * Compact number formatter — e.g. 1,585 / 102.8K / 1.4M. Always returns a
- * stable string for SSR rendering (locale-pinned to en-US).
- */
-export function formatStatNumber(
-  value: number,
-  opts?: { compact?: boolean },
-): string {
-  if (!Number.isFinite(value)) return "—";
-  if (opts?.compact && value >= 1000) {
-    return new Intl.NumberFormat("en-US", {
-      notation: "compact",
-      maximumFractionDigits: 1,
-    }).format(value);
-  }
-  return new Intl.NumberFormat("en-US").format(value);
-}
