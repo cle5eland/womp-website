@@ -5,6 +5,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 
 import { SpotifyIframePlayer } from "@/components/spotify-iframe-player";
+import { formatCompactStat } from "@/lib/format-compact-stat";
 import type { SpotifyArtistData } from "@/lib/spotify";
 
 type Props = {
@@ -28,13 +29,7 @@ const fmtDuration = (ms: number): string => {
   return `${m}:${String(s).padStart(2, "0")}`;
 };
 
-const fmtCount = (n: number | null): string =>
-  n == null
-    ? "—"
-    : new Intl.NumberFormat("en-US", {
-        notation: "compact",
-        maximumFractionDigits: 1,
-      }).format(n);
+const fmtCount = (n: number | null): string => formatCompactStat(n);
 
 const trackUriFromId = (id: string) => `spotify:track:${id}`;
 

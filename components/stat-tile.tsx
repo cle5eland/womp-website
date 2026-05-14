@@ -9,6 +9,8 @@ import {
   useTransform,
 } from "framer-motion";
 
+import { formatCompactStat } from "@/lib/format-compact-stat";
+
 /**
  * Shared visual primitives for "streaming snapshot" stat strips.
  *
@@ -17,30 +19,12 @@ import {
  */
 
 /**
- * Compact stat formatting with ceiling rounding:
- *   - Values < 1000 render as integers (14, 287).
- *   - Values >= 1000 render with the standard "K" / "M" suffix.
- *   - The number is rounded **up** rather than to-nearest, so 292,475 → 293K
- *     instead of 292K. The user explicitly asked for round-up.
- *   - No decimals: 292,475 → 293K, 1,584 → 2K, 1,200,000 → 2M. Consistent
- *     with the visual style elsewhere on the page.
- */
-const formatStat = (n: number | null | undefined): string =>
-  n == null
-    ? "—"
-    : new Intl.NumberFormat("en-US", {
-        notation: "compact",
-        maximumFractionDigits: 0,
-        roundingMode: "ceil",
-      }).format(n);
-
-/**
  * Animated count-up that uses `useInView` to start once visible. Server
  * renders a static, pre-formatted value so hydration is stable; client takes
  * over and animates from 0 → target.
  *
- * Formatting is shared across all stat tiles via `formatStat` so the Spotify,
- * SoundCloud, and Instagram panels stay visually consistent.
+ * Formatting is shared across all stat tiles via `formatCompactStat` so the
+ * Spotify, SoundCloud, and Instagram panels stay visually consistent.
  */
 export function Counter({
   value,
@@ -53,7 +37,7 @@ export function Counter({
   const inView = useInView(ref, { once: true, margin: "-20%" });
   const motionValue = useMotionValue(value ?? 0);
   const display = useTransform(motionValue, (latest) =>
-    formatStat(Math.round(latest)),
+    formatCompactStat(Math.round(latest)),
   );
 
   useEffect(() => {
