@@ -48,16 +48,37 @@ If credentials are not configured, the site degrades gracefully by reading the s
 The Instagram stats panel pulls follower / following / post counts via the official Instagram Graph API (Instagram Login flow). To enable it:
 
 1. Make sure the `@wompbass` Instagram account is set to **Business** or **Creator** (personal accounts can't read stats).
-2. Register a Meta app at [developers.facebook.com/apps](https://developers.facebook.com/apps) (Business type) and add the **Instagram** product to it.
-3. Generate a long-lived (60-day) access token for `@wompbass` with the `instagram_business_basic` (or older `instagram_basic`) scope.
+2. Register a Meta app at [developers.facebook.com/apps](https://developers.facebook.com/apps) (Business type) and add the **Instagram** product with **Instagram Login** / business login configured ([Business Login](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/business-login)).
+3. In the app dashboard, add an **OAuth redirect URI** that points at this project’s callback, exactly matching the env var below (trailing slashes matter).
 
-Then set the token:
+Then obtain a **long-lived user access token** (one of):
+
+**A. Built-in setup route (recommended for first-time setup)**  
+While developing locally (or on a HTTPS preview you control), set:
+
+| Variable | Required for setup | Description |
+| --- | --- | --- |
+| `INSTAGRAM_APP_ID` | Yes | **Instagram App ID** from App Dashboard → Instagram → business login settings. |
+| `INSTAGRAM_APP_SECRET` | Yes | **Instagram App Secret** (same screen). Server-only. |
+| `INSTAGRAM_OAUTH_REDIRECT_URI` | Yes | e.g. `http://localhost:3000/api/instagram/callback` — must match the dashboard list exactly. |
+| `INSTAGRAM_ENABLE_OAUTH_SETUP` | Yes | Set to `true` only during setup; set back to unset/false afterward. |
+
+Run `npm run dev`, visit `/api/instagram/oauth`, complete the Instagram login, then copy the shown token into `INSTAGRAM_ACCESS_TOKEN`. Turn off `INSTAGRAM_ENABLE_OAUTH_SETUP` when done so the OAuth endpoints return 404.
+
+**B. Manual exchange**  
+Follow Meta’s code → short-lived → long-lived steps in the same Business Login doc, then set `INSTAGRAM_ACCESS_TOKEN`.
+
+**Production runtime**
 
 | Variable | Required | Description |
 | --- | --- | --- |
 | `INSTAGRAM_ACCESS_TOKEN` | Yes (for live panel) | Long-lived access token. Server-only. |
 
+You do **not** need to publish the app to Live for a single owned account while you are a developer/admin on the app; you still complete OAuth once to grant scopes.
+
 Token rotation: tokens expire after ~60 days. Rotate the env var before the window lapses (or wire up a cron that calls `GET https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=…` and pushes the new token back into the secret manager). When the token is missing or rejected, the Instagram tiles gracefully render `—` rather than breaking the page.
+
+**Secrets:** never commit app secrets or access tokens. If a secret is pasted into chat or committed, rotate it in the Meta dashboard immediately.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
