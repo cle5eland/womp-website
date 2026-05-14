@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { SiteHeader } from "@/components/site-header";
 import { SpotifyProfile } from "@/components/spotify-profile";
 import type { SpotifyArtistData } from "@/lib/spotify";
+import { useSkipHeroEntrance } from "@/lib/use-skip-hero-entrance";
 import {
   fanNavItems,
   heroImage,
@@ -99,6 +100,7 @@ export function FanHome({ spotify }: { spotify: SpotifyArtistData | null }) {
   const todayYmd = localDateYmd(new Date());
   const futureShows = upcomingShows.filter((s) => s.endDate >= todayYmd);
   const mobileHeroLockPx = useMobileHeroHeightLock();
+  const skipHeroEntrance = useSkipHeroEntrance();
 
   return (
     <div className="relative min-h-screen bg-[#050505] text-zinc-200">
@@ -137,14 +139,21 @@ export function FanHome({ spotify }: { spotify: SpotifyArtistData | null }) {
               sizes="100vw"
             />
           </div>
-          <div
+          <motion.div
+            initial={skipHeroEntrance ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={
+              skipHeroEntrance
+                ? { duration: 0 }
+                : { delay: 0.8, duration: 0.8 }
+            }
             className="relative z-10 mx-auto flex w-full max-w-6xl justify-center px-5 pb-4 sm:px-8"
             aria-hidden
           >
             <span className="text-[9px] uppercase tracking-[0.5em] text-zinc-600">
               scroll
             </span>
-          </div>
+          </motion.div>
         </section>
 
         <FanSection id="shows" kicker="Live" title="Upcoming shows">
