@@ -28,6 +28,11 @@ export const metadata: Metadata = {
     template: "%s · womp",
   },
   description: "womp — dubstep producer & DJ. Shows, music, and press kit.",
+  icons: {
+    icon: "/assets/mascot_white.png",
+    shortcut: "/assets/mascot_white.png",
+    apple: "/assets/mascot_white.png",
+  },
   openGraph: {
     title: "womp",
     description: "Dubstep producer & DJ — Seattle.",
