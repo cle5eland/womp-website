@@ -80,11 +80,11 @@ export function PressPhotoCarousel({ images }: PressPhotoCarouselProps) {
   const [slotIndex, setSlotIndex] = useState<number[]>(() =>
     deterministicSlotIndices(n),
   );
-  const [paused, setPaused] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const sync = () => setPaused(mq.matches);
+    const sync = () => setReduceMotion(mq.matches);
     sync();
     mq.addEventListener("change", sync);
     return () => mq.removeEventListener("change", sync);
@@ -99,7 +99,7 @@ export function PressPhotoCarousel({ images }: PressPhotoCarouselProps) {
   }, [n]);
 
   useEffect(() => {
-    if (paused || n <= 1) return;
+    if (n <= 1) return;
     let slot = 0;
     const id = window.setInterval(() => {
       setSlotIndex((prev) => {
@@ -110,7 +110,7 @@ export function PressPhotoCarousel({ images }: PressPhotoCarouselProps) {
       slot = (slot + 1) % SLOT_COUNT;
     }, ROTATE_STEP_MS);
     return () => clearInterval(id);
-  }, [paused, n]);
+  }, [n]);
 
   if (n === 0) {
     return null;
@@ -130,10 +130,14 @@ export function PressPhotoCarousel({ images }: PressPhotoCarouselProps) {
             <AnimatePresence initial={false} mode="popLayout">
               <motion.div
                 key={`${slot}-${shot.src}`}
-                initial={{ opacity: 0 }}
+                initial={{ opacity: 1 }}
                 animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                exit={reduceMotion ? { opacity: 1 } : { opacity: 0 }}
+                transition={
+                  reduceMotion
+                    ? { duration: 0 }
+                    : { duration: 0.4, ease: [0.22, 1, 0.36, 1] }
+                }
                 className="absolute inset-0"
               >
                 <Image

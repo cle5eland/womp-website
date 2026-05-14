@@ -53,6 +53,9 @@ export const heroImageUnoptimized =
   heroImage.includes("googleusercontent.com") ||
   (!envHeroUrl && heroImage.startsWith("/"));
 
+/** Highlights streaming row — portrait beside platform stats (`public/assets/profile_pic.png`). */
+export const profileHighlightImage = "/assets/profile_pic.png";
+
 /** White wordmark from djwomp.com (Wix CDN). */
 export const logoImage =
   "https://static.wixstatic.com/media/07688b_f734b451dfcb4a0e872d14265ea54f52~mv2.png/v1/fit/w_560,h_184,al_c,q_92,enc_avif,quality_auto/07688b_f734b451dfcb4a0e872d14265ea54f52~mv2.png";
@@ -124,7 +127,7 @@ export const upcomingShows = [
     city: "Brooklyn, NY",
     venue: "The Meadows · w/ SoDown",
     note: "On The Air Tour stop in Brooklyn.",
-    url: "https://www.axs.com/",
+    url: "https://kydlabs.com/e/EV64e63176-5c61-450a-895c-51f1aeed674c",
   },
   {
     date: "Aug 6–9, 2026",
@@ -132,7 +135,7 @@ export const upcomingShows = [
     city: "Evansburg, AB",
     venue: "Friendzy Fest · Rangeton Park",
     note: "Three-stage bass music festival on the Pembina River, 18+.",
-    url: "https://www.friendzyfest.com/",
+    url: "https://friendzyfest.ca/",
   },
   {
     date: "Aug 28–30, 2026",

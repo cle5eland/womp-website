@@ -121,9 +121,9 @@ export function SpotifyProfile({
   return (
     <div className="grid gap-3 lg:grid-cols-[0.95fr_1.05fr] lg:gap-5">
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
+        initial={{ opacity: 1, y: 16 }}
         whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-15%" }}
+        viewport={{ once: true, amount: 0.12 }}
         transition={{ duration: 0.5 }}
         className="overflow-hidden border border-white/[0.09] bg-[#0a0a09]"
       >
@@ -193,9 +193,9 @@ export function SpotifyProfile({
 
       <div className="flex flex-col gap-3">
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 1, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
+          viewport={{ once: true, amount: 0.12 }}
           transition={{ duration: 0.5, delay: 0.05 }}
           className="border border-white/[0.09] bg-black/50"
         >
@@ -211,9 +211,9 @@ export function SpotifyProfile({
               return (
                 <motion.li
                   key={track.id}
-                  initial={{ opacity: 0, x: -8 }}
+                  initial={{ opacity: 1, x: -8 }}
                   whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
+                  viewport={{ once: true, amount: 0.12 }}
                   transition={{ delay: 0.04 * i }}
                   className={
                     "group transition-colors " +
@@ -302,9 +302,9 @@ export function SpotifyProfile({
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 14 }}
+          initial={{ opacity: 1, y: 14 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
+          viewport={{ once: true, amount: 0.12 }}
           transition={{ duration: 0.5, delay: 0.1 }}
           className="glow-box border border-white/[0.1] bg-black/50 p-2 sm:p-2.5"
         >
