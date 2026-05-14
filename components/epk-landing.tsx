@@ -15,6 +15,7 @@ import {
   galleryImages,
   heroImage,
   heroImageUnoptimized,
+  heroTagline,
   instagramProfileUrl,
   logoImage,
   navItems,
@@ -273,9 +274,9 @@ export function EpkLanding({
                 initial="hidden"
                 animate="show"
                 variants={fadeUp}
-                className="font-display mt-4 text-4xl uppercase leading-[0.92] tracking-wide text-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.75)] sm:mt-5 sm:text-5xl md:text-6xl"
+                className="mt-4 font-sans text-2xl font-bold lowercase leading-[1.05] tracking-[-0.04em] text-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.75)] sm:mt-5 sm:text-3xl md:text-4xl"
               >
-                Womp
+                womp
               </motion.h1>
               <motion.p
                 custom={2}
@@ -284,7 +285,7 @@ export function EpkLanding({
                 variants={fadeUp}
                 className="mt-5 max-w-xl text-sm leading-relaxed text-zinc-100 sm:text-base"
               >
-                140 Dubstep Producer out of Seattle, WA.
+                {heroTagline}
               </motion.p>
             <motion.div
               custom={3}
@@ -465,8 +466,7 @@ export function EpkLanding({
                     src={video.url}
                     title={video.title}
                     loading="lazy"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                   />
                 </div>
                 <div className="border-t border-white/[0.06] px-5 py-4">

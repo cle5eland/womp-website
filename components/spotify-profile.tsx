@@ -56,7 +56,8 @@ export function SpotifyEmbed({
       width="100%"
       height={height}
       style={{ borderRadius: 12, border: 0 }}
-      allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+      allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
+      allowFullScreen
       loading="lazy"
       className={className}
     />

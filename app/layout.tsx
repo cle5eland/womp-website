@@ -11,7 +11,7 @@ const bebas = Bebas_Neue({
 });
 
 const ibmMono = IBM_Plex_Mono({
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700"],
   subsets: ["latin"],
   variable: "--font-ibm-plex-mono",
   display: "swap",

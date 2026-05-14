@@ -1,4 +1,4 @@
-/** White brand marks for header / mobile menu — `currentColor` for hover via parent. */
+/** Social marks: white by default; hover uses each platform’s brand color. */
 
 import {
   InstagramIcon,
@@ -7,8 +7,8 @@ import {
 } from "@/components/platform-icons";
 
 const iconClass = "h-[14px] w-[14px] shrink-0";
-const linkClass =
-  "flex h-8 w-8 items-center justify-center text-white transition-colors hover:text-[var(--accent)]";
+const linkBase =
+  "flex h-8 w-8 items-center justify-center text-white transition-colors";
 
 export function HeaderSocialIcons({
   instagramHref,
@@ -28,7 +28,7 @@ export function HeaderSocialIcons({
         target="_blank"
         rel="noreferrer"
         aria-label="Instagram"
-        className={linkClass}
+        className={`${linkBase} hover:text-[#E1306C]`}
       >
         <InstagramIcon className={iconClass} />
       </a>
@@ -37,7 +37,7 @@ export function HeaderSocialIcons({
         target="_blank"
         rel="noreferrer"
         aria-label="Spotify"
-        className={linkClass}
+        className={`${linkBase} hover:text-[#1ED760]`}
       >
         <SpotifyIcon className={iconClass} />
       </a>
@@ -46,7 +46,7 @@ export function HeaderSocialIcons({
         target="_blank"
         rel="noreferrer"
         aria-label="SoundCloud"
-        className={linkClass}
+        className={`${linkBase} hover:text-[#ff5500]`}
       >
         <SoundcloudIcon className={iconClass} />
       </a>

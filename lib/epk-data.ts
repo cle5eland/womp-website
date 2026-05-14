@@ -11,6 +11,10 @@ export const videosDriveFolderUrl =
 
 export const bookingEmail = "booking@djwomp.com";
 
+/** Intro line under the hero “womp” title (same copy in the hero box). */
+export const heroTagline =
+  "140 Dubstep Producer out of Seattle, WA." as const;
+
 export const navItems = [
   { label: "Highlights", href: "#stats" },
   { label: "Bio", href: "#bio" },
