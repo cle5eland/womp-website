@@ -3,8 +3,8 @@
 :root {
   --background: #050505;
   --foreground: #e8e8e3;
-  --accent: #3dffce;
-  --accent-dim: rgba(61, 255, 206, 0.45);
+  --accent: #9516c4;
+  --accent-dim: rgba(149, 22, 196, 0.45);
   --charcoal: #0d0d0c;
 }
 
@@ -17,12 +17,16 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: clip;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-ibm-plex-mono), ui-monospace, monospace;
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 .font-display {
@@ -49,7 +53,7 @@ body {
 .glow-text {
   text-shadow:
     0 0 24px var(--accent-dim),
-    0 0 64px rgba(61, 255, 206, 0.15);
+    0 0 64px rgba(149, 22, 196, 0.18);
 }
 
 .glow-box {

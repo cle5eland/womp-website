@@ -26,7 +26,7 @@ export type InstagramStats = {
 };
 
 /**
- * Slim three-number bundle that the `InstagramStats` UI component consumes.
+ * Slim three-number bundle consumed by the streaming snapshot UI.
  * Mirrors `SpotifyStatsBundle` and `SoundcloudStatsBundle` in shape so the
  * three panels stay visually parallel without leaking the full server-side
  * record to the client. Numbers are nullable so the UI can render "—" for

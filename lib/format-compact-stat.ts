@@ -6,8 +6,8 @@
  *   precision for typical follower / play counts in that range).
  * - Larger values use `notation: "compact"` with **two** significant digits
  *   so we never collapse to a single-digit mantissa (e.g. 2.1K instead of 3K).
- * - Compact values use **ceil** rounding so displayed counts never read lower
- *   than the underlying API integer.
+ *   (`roundingMode: "ceil"` is omitted — it is not supported in all runtimes and
+ *   can throw at format time.)
  */
 export function formatCompactStat(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return "—";
@@ -22,6 +22,5 @@ export function formatCompactStat(n: number | null | undefined): string {
     notation: "compact",
     minimumSignificantDigits: 2,
     maximumSignificantDigits: 2,
-    roundingMode: "ceil",
   }).format(v);
 }

@@ -11,13 +11,18 @@ export const videosDriveFolderUrl =
 
 export const bookingEmail = "booking@djwomp.com";
 
+/** Intro line under the hero “womp” title (same copy in the hero box). */
+export const heroTagline =
+  "140 Dubstep Producer out of Seattle, WA." as const;
+
 export const navItems = [
-  { label: "Stats", href: "#stats" },
+  { label: "Highlights", href: "#stats" },
+  { label: "Bio", href: "#bio" },
   { label: "Shows", href: "#shows" },
   { label: "Listen", href: "#listen" },
-  { label: "Bio", href: "#bio" },
-  { label: "Press", href: "#press" },
+  { label: "Photos", href: "#press" },
   { label: "Video", href: "#video" },
+  { label: "Contact", href: "#contact" },
 ] as const;
 
 /** Local hero (also overridable with `NEXT_PUBLIC_HERO_IMAGE_URL`). */
@@ -28,35 +33,59 @@ const envHeroUrl =
     ? process.env.NEXT_PUBLIC_HERO_IMAGE_URL?.trim() || ""
     : "";
 
-export const heroImage = envHeroUrl || defaultHeroImage;
+/** Bust CDN/browser cache for the default file when the image is replaced without renaming. */
+const heroLocalCacheKey =
+  typeof process !== "undefined"
+    ? process.env.NEXT_PUBLIC_HERO_IMAGE_REVISION?.trim() ||
+      process.env.VERCEL_DEPLOYMENT_ID?.trim() ||
+      ""
+    : "";
+
+export const heroImage = envHeroUrl
+  ? envHeroUrl
+  : heroLocalCacheKey
+    ? `${defaultHeroImage}?v=${encodeURIComponent(heroLocalCacheKey)}`
+    : defaultHeroImage;
 
 /** Google Drive and similar hosts block Next’s optimizer fetch. */
 export const heroImageUnoptimized =
   heroImage.includes("drive.google.com") ||
-  heroImage.includes("googleusercontent.com");
+  heroImage.includes("googleusercontent.com") ||
+  (!envHeroUrl && heroImage.startsWith("/"));
 
 /** White wordmark from djwomp.com (Wix CDN). */
 export const logoImage =
   "https://static.wixstatic.com/media/07688b_f734b451dfcb4a0e872d14265ea54f52~mv2.png/v1/fit/w_560,h_184,al_c,q_92,enc_avif,quality_auto/07688b_f734b451dfcb4a0e872d14265ea54f52~mv2.png";
 
-export const galleryImages = [
-  {
-    src: "https://static.wixstatic.com/media/5a690c_22f0aa36686b4097a7d629a9d62d9bee~mv2.jpeg/v1/fit/w_960,h_642,q_90,enc_avif,quality_auto/5a690c_22f0aa36686b4097a7d629a9d62d9bee~mv2.jpeg",
-    alt: "Live — octopus garage energy",
-    width: 960,
-    height: 642,
-  },
-  {
-    src: "https://static.wixstatic.com/media/5a690c_100325cb8a004d689d5cfc535b1bba20~mv2.jpg/v1/fit/w_960,h_641,q_90,enc_avif,quality_auto/5a690c_100325cb8a004d689d5cfc535b1bba20~mv2.jpg",
-    alt: "Live — crowd side",
-    width: 960,
-    height: 641,
-  },
-] as const;
+/** Extra press shots merged after disk files from `public/assets/gallery`. */
+export const galleryImages: readonly PressShot[] = [];
 
 export function fallbackPressShots(): PressShot[] {
-  return galleryImages.map((img) => ({ src: img.src, alt: img.alt }));
+  if (galleryImages.length > 0) {
+    return galleryImages.map((img) => ({ src: img.src, alt: img.alt }));
+  }
+  return [{ src: "/assets/hero.jpg", alt: "womp" }];
 }
+
+/** Record labels — shown in the Highlights panel (name + link + optional CTA line). */
+export type RecordLabel = {
+  readonly name: string;
+  readonly url: string;
+  /** Shown under the label name (defaults to “Official site →”). */
+  readonly linkLabel?: string;
+};
+
+export const recordLabels: readonly RecordLabel[] = [
+  {
+    name: "Ganja White Night's SubCarbon Records",
+    url: "https://soundcloud.com/subcarbon",
+    linkLabel: "SoundCloud →",
+  },
+];
+
+/** Highlights → Performances — support billing copy. */
+export const performancesSupportCopy =
+  "Support for: TVBOO, Jkyl & Hyde, Chef Boyarbeatz, Shanghai Doom, Pierce, SubDocta, and Stylust";
 
 /** Canonical artist page — embeds, fallbacks, and social links. */
 export const spotifyArtistUrl =
@@ -83,28 +112,35 @@ export const socialLinks = [
     href: soundcloudProfileUrl,
   },
   { label: "Instagram", href: instagramProfileUrl },
-  { label: "YouTube", href: "https://www.youtube.com/@djwomp" },
+  { label: "YouTube", href: "https://www.youtube.com/@wompbass" },
   { label: "Site", href: "https://www.djwomp.com/" },
 ] as const;
 
 export const upcomingShows = [
   {
     date: "May 22, 2026",
+    /** Last calendar day of this appearance (ISO `YYYY-MM-DD`, local compare). */
+    endDate: "2026-05-22",
     city: "Brooklyn, NY",
     venue: "The Meadows · w/ SoDown",
     note: "On The Air Tour stop in Brooklyn.",
+    url: "https://www.axs.com/",
   },
   {
     date: "Aug 6–9, 2026",
+    endDate: "2026-08-09",
     city: "Evansburg, AB",
     venue: "Friendzy Fest · Rangeton Park",
     note: "Three-stage bass music festival on the Pembina River, 18+.",
+    url: "https://www.friendzyfest.com/",
   },
   {
     date: "Aug 28–30, 2026",
+    endDate: "2026-08-30",
     city: "Union, WV",
     venue: "Mountain Wubz · Nightfall Ridge",
     note: "Southern West Virginia's bass-leaning EDM festival.",
+    url: "https://www.mountainwubz.com/",
   },
 ] as const;
 
