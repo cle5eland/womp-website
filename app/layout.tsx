@@ -23,12 +23,15 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "womp — EPK",
-  description:
-    "Electronic press kit — womp. Dubstep producer & DJ. Seattle. Releases, live, press, and booking.",
+  title: {
+    default: "womp",
+    template: "%s · womp",
+  },
+  description: "womp — dubstep producer & DJ. Shows, music, and press kit.",
   openGraph: {
-    title: "womp — EPK",
-    description: "Dubstep producer & DJ — press, streaming, and booking.",
+    title: "womp",
+    description: "Dubstep producer & DJ — Seattle.",
+    url: "https://djwomp.com/",
   },
 };
 
