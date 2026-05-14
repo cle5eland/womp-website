@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { SiteHeader } from "@/components/site-header";
 import { SpotifyProfile } from "@/components/spotify-profile";
 import type { SpotifyArtistData } from "@/lib/spotify";
+import { useBfCacheRemountKey } from "@/lib/use-bf-cache-remount-key";
 import {
   fanNavItems,
   heroImage,
@@ -99,6 +100,7 @@ export function FanHome({ spotify }: { spotify: SpotifyArtistData | null }) {
   const todayYmd = localDateYmd(new Date());
   const futureShows = upcomingShows.filter((s) => s.endDate >= todayYmd);
   const mobileHeroLockPx = useMobileHeroHeightLock();
+  const heroRemountKey = useBfCacheRemountKey();
 
   return (
     <div className="relative min-h-screen bg-[#050505] text-zinc-200">
@@ -138,6 +140,7 @@ export function FanHome({ spotify }: { spotify: SpotifyArtistData | null }) {
             />
           </div>
           <motion.div
+            key={`hero-scroll-${heroRemountKey}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.8, duration: 0.8 }}

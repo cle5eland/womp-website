@@ -31,6 +31,7 @@ import {
 import type { InstagramStats as InstagramStatsRecord } from "@/lib/instagram-types";
 import type { SpotifyArtistData } from "@/lib/spotify";
 import type { SoundcloudStats as SoundcloudStatsRecord } from "@/lib/soundcloud-types";
+import { useBfCacheRemountKey } from "@/lib/use-bf-cache-remount-key";
 
 /** Local calendar day `YYYY-MM-DD` for comparing `upcomingShows[].endDate`. */
 function localDateYmd(d: Date): string {
@@ -182,6 +183,7 @@ export function EpkLanding({
   const futureShows = upcomingShows.filter((s) => s.endDate >= todayYmd);
 
   const mobileHeroLockPx = useMobileHeroHeightLock();
+  const heroRemountKey = useBfCacheRemountKey();
 
   return (
     <div className="relative min-h-screen bg-[#050505] text-zinc-200">
@@ -227,7 +229,10 @@ export function EpkLanding({
             */}
             <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#050505] to-transparent" />
           </div>
-          <div className="relative z-10 mx-auto hidden w-full max-w-6xl px-5 pb-8 pt-32 sm:px-8 sm:pb-10 md:block md:px-12 md:pb-12">
+          <div
+            key={heroRemountKey}
+            className="relative z-10 mx-auto hidden w-full max-w-6xl px-5 pb-8 pt-32 sm:px-8 sm:pb-10 md:block md:px-12 md:pb-12"
+          >
             <div className="max-w-xl border border-white/15 bg-[#050505]/55 p-6 shadow-[0_0_80px_-20px_rgba(0,0,0,0.9)] backdrop-blur-md sm:p-8">
               <motion.p
                 custom={0}
@@ -284,6 +289,7 @@ export function EpkLanding({
             </div>
           </div>
           <motion.div
+            key={`hero-scroll-${heroRemountKey}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.8, duration: 0.8 }}
