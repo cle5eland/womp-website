@@ -6,20 +6,62 @@ import { AnimatePresence, motion } from "framer-motion";
 
 type Shot = { src: string; alt: string };
 
-/** Staggered rotation so slots do not flip in sync. */
-const SLOT_INTERVAL_MS = [5200, 6100, 5750, 6800] as const;
+/** Delay between one cell’s swap and the next (cells rotate 0 → 1 → 2 → 3 → …). */
+const ROTATE_STEP_MS = 2000;
 const SLOT_COUNT = 4;
 
-/** Uniform pick in `[0, n)` excluding `current` when `n > 1`. */
+function pickRandom<T>(xs: readonly T[]): T {
+  return xs[Math.floor(Math.random() * xs.length)]!;
+}
+
+/** Uniform pick in `[0, n)` excluding `current` when `n > 1` (last resort). */
 function randomIndexDifferentFrom(current: number, n: number): number {
   if (n <= 1) return 0;
   const pick = Math.floor(Math.random() * (n - 1));
   return pick < current ? pick : pick + 1;
 }
 
-function randomSlotIndices(n: number): number[] {
+/** Four distinct indices when `n >= 4`; otherwise best-effort. */
+function randomSlotIndicesDistinct(n: number): number[] {
   if (n <= 0) return Array.from({ length: SLOT_COUNT }, () => 0);
-  return Array.from({ length: SLOT_COUNT }, () => Math.floor(Math.random() * n));
+  if (n >= SLOT_COUNT) {
+    const indices = Array.from({ length: n }, (_, i) => i);
+    for (let i = 0; i < SLOT_COUNT; i++) {
+      const j = i + Math.floor(Math.random() * (n - i));
+      [indices[i], indices[j]] = [indices[j]!, indices[i]!];
+    }
+    return indices.slice(0, SLOT_COUNT);
+  }
+  return Array.from({ length: SLOT_COUNT }, (_, i) => i % n);
+}
+
+function deterministicSlotIndices(n: number): number[] {
+  if (n <= 0) return Array.from({ length: SLOT_COUNT }, () => 0);
+  if (n >= SLOT_COUNT) return Array.from({ length: SLOT_COUNT }, (_, i) => i);
+  return Array.from({ length: SLOT_COUNT }, (_, i) => i % n);
+}
+
+/**
+ * Pick a new image index for `slot` that is not shown on any other tile when
+ * possible, and prefer a change from the current image.
+ */
+function pickNextSlotIndex(slot: number, prev: readonly number[], n: number): number {
+  const cur = prev[slot] ?? 0;
+  const usedElsewhere = new Set(
+    prev.flatMap((idx, j) => (j === slot ? [] : [idx])),
+  );
+
+  const prefer = Array.from({ length: n }, (_, i) => i).filter(
+    (i) => i !== cur && !usedElsewhere.has(i),
+  );
+  if (prefer.length > 0) return pickRandom(prefer);
+
+  const noCollision = Array.from({ length: n }, (_, i) => i).filter(
+    (i) => !usedElsewhere.has(i),
+  );
+  if (noCollision.length > 0) return pickRandom(noCollision);
+
+  return randomIndexDifferentFrom(cur, n);
 }
 
 type PressPhotoCarouselProps = {
@@ -28,12 +70,16 @@ type PressPhotoCarouselProps = {
 };
 
 /**
- * Four-up photo grid: each cell picks a random image on its own timer
- * (different intervals so swaps rarely line up).
+ * Four-up photo grid: every {@link ROTATE_STEP_MS}, one cell updates to a new
+ * image, cycling slots. New picks avoid matching any other tile when possible;
+ * with four or more photos, tiles stay pairwise distinct after the post-mount shuffle.
  */
 export function PressPhotoCarousel({ images }: PressPhotoCarouselProps) {
   const n = images.length;
-  const [slotIndex, setSlotIndex] = useState<number[]>(() => randomSlotIndices(n));
+  // Deterministic first paint so SSR + hydration match; randomize after paint.
+  const [slotIndex, setSlotIndex] = useState<number[]>(() =>
+    deterministicSlotIndices(n),
+  );
   const [paused, setPaused] = useState(false);
 
   useEffect(() => {
@@ -46,22 +92,24 @@ export function PressPhotoCarousel({ images }: PressPhotoCarouselProps) {
 
   useEffect(() => {
     if (n === 0) return;
-    setSlotIndex(randomSlotIndices(n));
+    const id = requestAnimationFrame(() => {
+      setSlotIndex(randomSlotIndicesDistinct(n));
+    });
+    return () => cancelAnimationFrame(id);
   }, [n]);
 
   useEffect(() => {
     if (paused || n <= 1) return;
-    const ids = SLOT_INTERVAL_MS.map((ms, slot) =>
-      window.setInterval(() => {
-        setSlotIndex((prev) => {
-          const next = [...prev];
-          const cur = next[slot] ?? 0;
-          next[slot] = randomIndexDifferentFrom(cur, n);
-          return next;
-        });
-      }, ms),
-    );
-    return () => ids.forEach((id) => window.clearInterval(id));
+    let slot = 0;
+    const id = window.setInterval(() => {
+      setSlotIndex((prev) => {
+        const next = [...prev];
+        next[slot] = pickNextSlotIndex(slot, prev, n);
+        return next;
+      });
+      slot = (slot + 1) % SLOT_COUNT;
+    }, ROTATE_STEP_MS);
+    return () => clearInterval(id);
   }, [paused, n]);
 
   if (n === 0) {

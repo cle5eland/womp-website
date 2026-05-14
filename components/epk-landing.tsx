@@ -259,16 +259,6 @@ export function EpkLanding({
           </div>
           <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-8 pt-32 sm:px-8 sm:pb-10 md:px-12 md:pb-12">
             <div className="max-w-xl border border-white/15 bg-[#050505]/55 p-6 shadow-[0_0_80px_-20px_rgba(0,0,0,0.9)] backdrop-blur-md sm:p-8">
-              <div className="relative mb-5 h-12 w-40 sm:mb-6 sm:h-14 sm:w-44">
-                <Image
-                  src={logoImage}
-                  alt=""
-                  fill
-                  className="object-contain object-left"
-                  sizes="176px"
-                  priority
-                />
-              </div>
               <motion.p
                 custom={0}
                 initial="hidden"
@@ -278,17 +268,26 @@ export function EpkLanding({
               >
                 Electronic press kit
               </motion.p>
-              <motion.p
+              <motion.h1
                 custom={1}
+                initial="hidden"
+                animate="show"
+                variants={fadeUp}
+                className="font-display mt-4 text-4xl uppercase leading-[0.92] tracking-wide text-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.75)] sm:mt-5 sm:text-5xl md:text-6xl"
+              >
+                Womp
+              </motion.h1>
+              <motion.p
+                custom={2}
                 initial="hidden"
                 animate="show"
                 variants={fadeUp}
                 className="mt-5 max-w-xl text-sm leading-relaxed text-zinc-100 sm:text-base"
               >
-                140 Dubstep Producer out of Seattle, WA
+                140 Dubstep Producer out of Seattle, WA.
               </motion.p>
             <motion.div
-              custom={2}
+              custom={3}
               initial="hidden"
               animate="show"
               variants={fadeUp}
