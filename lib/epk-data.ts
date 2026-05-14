@@ -25,6 +25,13 @@ export const navItems = [
   { label: "Contact", href: "#contact" },
 ] as const;
 
+/** Main site (fans) — deep links on `/`; industry kit at `/epk`. */
+export const fanNavItems = [
+  { label: "Shows", href: "#shows" },
+  { label: "Listen", href: "#listen" },
+  { label: "Press kit", href: "/epk" },
+] as const;
+
 /** Local hero (also overridable with `NEXT_PUBLIC_HERO_IMAGE_URL`). */
 const defaultHeroImage = "/assets/hero.jpg";
 

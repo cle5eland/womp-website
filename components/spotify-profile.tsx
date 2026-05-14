@@ -20,6 +20,8 @@ type Props = {
    * IFrame API player. "embed" renders only the official iframe. */
   variant?: "rich" | "embed";
   maxTracks?: number;
+  /** When false, hides the followers / popularity row on the artist card (fan homepage). */
+  showArtistMetrics?: boolean;
 };
 
 const fmtDuration = (ms: number): string => {
@@ -71,6 +73,7 @@ export function SpotifyProfile({
   fallbackArtistUrl,
   variant = "rich",
   maxTracks = 5,
+  showArtistMetrics = true,
 }: Props) {
   const playerControllerRef = useRef<{
     loadUri: (uri: string) => void;
@@ -147,27 +150,29 @@ export function SpotifyProfile({
             </h3>
           </div>
         </div>
-        <div className="grid grid-cols-2 divide-x divide-white/[0.07] border-t border-white/[0.07]">
-          <div className="px-5 py-4">
-            <p className="text-[9px] uppercase tracking-[0.35em] text-zinc-500">
-              Followers
-            </p>
-            <p className="font-display mt-1 text-2xl text-white">
-              {fmtCount(artist.followers)}
-            </p>
+        {showArtistMetrics ? (
+          <div className="grid grid-cols-2 divide-x divide-white/[0.07] border-t border-white/[0.07]">
+            <div className="px-5 py-4">
+              <p className="text-[9px] uppercase tracking-[0.35em] text-zinc-500">
+                Followers
+              </p>
+              <p className="font-display mt-1 text-2xl text-white">
+                {fmtCount(artist.followers)}
+              </p>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-[9px] uppercase tracking-[0.35em] text-zinc-500">
+                Popularity
+              </p>
+              <p className="font-display mt-1 text-2xl text-white">
+                {artist.popularity || "—"}
+                <span className="ml-1 align-top text-[10px] tracking-[0.3em] text-zinc-500">
+                  /100
+                </span>
+              </p>
+            </div>
           </div>
-          <div className="px-5 py-4">
-            <p className="text-[9px] uppercase tracking-[0.35em] text-zinc-500">
-              Popularity
-            </p>
-            <p className="font-display mt-1 text-2xl text-white">
-              {artist.popularity || "—"}
-              <span className="ml-1 align-top text-[10px] tracking-[0.3em] text-zinc-500">
-                /100
-              </span>
-            </p>
-          </div>
-        </div>
+        ) : null}
         {artist.genres.length > 0 ? (
           <div className="flex flex-wrap gap-1.5 border-t border-white/[0.07] px-5 py-4">
             {artist.genres.slice(0, 4).map((g) => (
@@ -271,7 +276,7 @@ export function SpotifyProfile({
                       </p>
                       <p className="mt-0.5 truncate text-[10px] uppercase tracking-[0.18em] text-zinc-500">
                         {track.album.name}
-                        {track.playcount != null
+                        {showArtistMetrics && track.playcount != null
                           ? ` · ${fmtCount(track.playcount)} plays`
                           : ""}
                       </p>
