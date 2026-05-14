@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import Image from "next/image";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 
 import { InstagramStats } from "@/components/instagram-stats";
 import { PressGallery } from "@/components/press-gallery";
@@ -17,14 +17,13 @@ import {
   heroImage,
   heroImageUnoptimized,
   instagramProfileUrl,
-  latestRelease,
   logoImage,
   navItems,
   pressKitDriveUrl,
   socialLinks,
-  soundcloudEmbedSrc,
   soundcloudProfileUrl,
   spotifyArtistEmbedSrc,
+  spotifyArtistUrl,
   upcomingShows,
   videos,
   videosDriveFolderUrl,
@@ -59,7 +58,6 @@ function SectionShell({
   children: React.ReactNode;
   className?: string;
 }) {
-  const reduce = useReducedMotion();
   return (
     <section
       id={id}
@@ -67,8 +65,8 @@ function SectionShell({
     >
       <div className="mx-auto max-w-6xl">
         <motion.div
-          initial={reduce ? false : { opacity: 0, y: 16 }}
-          whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
           className="mb-10 max-w-3xl"
@@ -97,7 +95,6 @@ export function EpkLanding({
   soundcloud: SoundcloudStatsRecord | null;
   instagram: InstagramStatsRecord | null;
 }) {
-  const reduce = useReducedMotion();
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Slim down the full SoundCloud record to the three numbers the UI tile
@@ -229,8 +226,8 @@ export function EpkLanding({
               </div>
               <motion.p
                 custom={0}
-                initial={reduce ? false : "hidden"}
-                animate={reduce ? undefined : "show"}
+                initial="hidden"
+                animate="show"
                 variants={fadeUp}
                 className="text-[10px] font-semibold uppercase tracking-[0.55em] text-[var(--accent)] drop-shadow-[0_1px_12px_rgba(0,0,0,0.85)]"
               >
@@ -238,8 +235,8 @@ export function EpkLanding({
               </motion.p>
               <motion.h1
                 custom={1}
-                initial={reduce ? false : "hidden"}
-                animate={reduce ? undefined : "show"}
+                initial="hidden"
+                animate="show"
                 variants={fadeUp}
                 className="font-display mt-3 text-4xl uppercase leading-none tracking-[0.04em] text-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.9)] sm:text-5xl"
               >
@@ -247,8 +244,8 @@ export function EpkLanding({
               </motion.h1>
               <motion.p
                 custom={2}
-                initial={reduce ? false : "hidden"}
-                animate={reduce ? undefined : "show"}
+                initial="hidden"
+                animate="show"
                 variants={fadeUp}
                 className="mt-5 max-w-xl text-sm leading-relaxed text-zinc-100 sm:text-base"
               >
@@ -257,8 +254,8 @@ export function EpkLanding({
               </motion.p>
             <motion.div
               custom={3}
-              initial={reduce ? false : "hidden"}
-              animate={reduce ? undefined : "show"}
+              initial="hidden"
+              animate="show"
               variants={fadeUp}
               className="mt-8 flex flex-wrap gap-3"
             >
@@ -299,8 +296,8 @@ export function EpkLanding({
         >
           <div className="mx-auto max-w-6xl">
             <motion.div
-              initial={reduce ? false : { opacity: 0, y: 12 }}
-              whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               className="mb-8 max-w-3xl"
             >
@@ -334,53 +331,13 @@ export function EpkLanding({
           </div>
         </section>
 
-        <SectionShell id="release" kicker="Out now" title={latestRelease.title}>
-          <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:items-start">
-            <motion.div
-              initial={reduce ? false : { opacity: 0, x: -12 }}
-              whileInView={reduce ? undefined : { opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.45 }}
-            >
-              <p className="text-lg font-medium text-white">{latestRelease.subtitle}</p>
-              <p className="mt-4 text-sm leading-relaxed text-zinc-500">
-                {latestRelease.description}
-              </p>
-              <a
-                href={latestRelease.spotifyUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-8 inline-flex border border-white/20 px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.3em] text-white transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-              >
-                Open on Spotify
-              </a>
-            </motion.div>
-            <motion.div
-              initial={reduce ? false : { opacity: 0, y: 16 }}
-              whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="glow-box overflow-hidden border border-white/[0.1] bg-black/60 p-2 sm:p-3"
-            >
-              <iframe
-                title="Latest release on Spotify"
-                src={latestRelease.spotifyEmbedSrc}
-                width="100%"
-                height="380"
-                className="rounded-none border-0"
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                loading="lazy"
-              />
-            </motion.div>
-          </div>
-        </SectionShell>
-
         <SectionShell id="shows" kicker="Live" title="Upcoming shows">
           <div className="grid gap-4">
             {upcomingShows.map((show, i) => (
               <motion.article
                 key={`${show.date}-${show.venue}`}
-                initial={reduce ? false : { opacity: 0, y: 10 }}
-                whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.06 * i }}
                 className="flex flex-col gap-3 border border-white/[0.09] bg-[#0a0a09] p-6 sm:flex-row sm:items-end sm:justify-between"
@@ -402,42 +359,20 @@ export function EpkLanding({
           </div>
         </SectionShell>
 
-        <SectionShell id="listen" kicker="DSP" title="Stream">
-          <div className="grid gap-10">
-            <SpotifyProfile
-              data={spotify}
-              embedSrc={spotifyArtistEmbedSrc}
-              fallbackArtistUrl={latestRelease.spotifyUrl}
-              maxTracks={5}
-            />
-            <motion.div
-              initial={reduce ? false : { opacity: 0, y: 14 }}
-              whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.08 }}
-              className="border border-white/[0.1] bg-black/50 p-3"
-            >
-              <p className="mb-3 px-1 text-[10px] font-medium uppercase tracking-[0.35em] text-zinc-500">
-                SoundCloud
-              </p>
-              <iframe
-                title="SoundCloud"
-                width="100%"
-                height="400"
-                scrolling="no"
-                frameBorder={0}
-                allow="autoplay"
-                src={soundcloudEmbedSrc}
-              />
-            </motion.div>
-          </div>
+        <SectionShell id="listen" kicker="Listen" title="Stream">
+          <SpotifyProfile
+            data={spotify}
+            embedSrc={spotifyArtistEmbedSrc}
+            fallbackArtistUrl={spotifyArtistUrl}
+            maxTracks={5}
+          />
         </SectionShell>
 
         <SectionShell id="bio" kicker="Artist" title="Bio">
           <div className="grid gap-12 lg:grid-cols-[1.05fr_0.95fr]">
             <motion.div
-              initial={reduce ? false : { opacity: 0, y: 12 }}
-              whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               className="space-y-5 text-sm leading-relaxed text-zinc-400"
             >
@@ -451,8 +386,8 @@ export function EpkLanding({
               ))}
             </motion.div>
             <motion.div
-              initial={reduce ? false : { opacity: 0, y: 12 }}
-              whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.06 }}
               className="border border-white/[0.08] bg-[#0c0c0b] p-6"
@@ -481,29 +416,25 @@ export function EpkLanding({
         <SectionShell id="press" kicker="Imagery" title="Press & live photos">
           <div className="grid gap-10 lg:grid-cols-2">
             <div>
-              <PressGallery images={pressShots} visibleCount={4} />
+              <PressGallery images={pressShots} />
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              {galleryImages.map((img, i) => (
-                <motion.figure
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+              {galleryImages.map((img) => (
+                <figure
                   key={img.src}
-                  initial={reduce ? false : { opacity: 0, scale: 0.98 }}
-                  whileInView={reduce ? undefined : { opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.05 * i }}
-                  className="relative aspect-[4/5] overflow-hidden border border-white/10 bg-black"
+                  className="relative aspect-[4/5] overflow-hidden border border-white/10 bg-black sm:min-h-0"
                 >
                   <Image
                     src={img.src}
                     alt={img.alt}
                     fill
-                    sizes="(min-width: 1024px) 22vw, 45vw"
+                    sizes="(min-width: 1024px) 28vw, (min-width: 480px) 46vw, 100vw"
                     className="object-cover"
                   />
                   <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent px-3 py-3 text-[9px] uppercase tracking-[0.25em] text-zinc-500">
                     {img.alt}
                   </figcaption>
-                </motion.figure>
+                </figure>
               ))}
             </div>
           </div>
@@ -511,8 +442,8 @@ export function EpkLanding({
 
         <SectionShell id="video" kicker="Motion" title="Video clips">
           <motion.div
-            initial={reduce ? false : { opacity: 0, y: 10 }}
-            whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             className="mb-10 flex flex-col gap-4 border border-white/[0.09] bg-[#0a0a09] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
           >
@@ -533,8 +464,8 @@ export function EpkLanding({
             {videos.map((video, i) => (
               <motion.article
                 key={video.url}
-                initial={reduce ? false : { opacity: 0, y: 16 }}
-                whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: 0.07 * i }}
                 className="overflow-hidden border border-white/[0.09] bg-black/60"
@@ -562,14 +493,10 @@ export function EpkLanding({
           </div>
         </SectionShell>
 
-        <SectionShell id="mailing" kicker="Inner circle" title="Mailing list">
-          <MailingForm />
-        </SectionShell>
-
         <section className="border-t border-white/[0.07] bg-[#080807] px-5 py-16 sm:px-8 md:px-12">
           <motion.div
-            initial={reduce ? false : { opacity: 0, y: 12 }}
-            whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-8 border border-[var(--accent)]/25 bg-[var(--accent)]/[0.04] p-8 sm:flex-row sm:items-center"
           >
@@ -620,72 +547,5 @@ export function EpkLanding({
         </div>
       </footer>
     </div>
-  );
-}
-
-function MailingForm() {
-  const reduce = useReducedMotion();
-  const [sent, setSent] = useState(false);
-
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const email = (form.elements.namedItem("email") as HTMLInputElement)?.value;
-    const name = (form.elements.namedItem("name") as HTMLInputElement)?.value;
-    const body = encodeURIComponent(
-      `Please add me to the mailing list.\n\nName: ${name || "—"}\nEmail: ${email}`,
-    );
-    window.location.href = `mailto:${bookingEmail}?subject=${encodeURIComponent("Mailing list signup")}&body=${body}`;
-    setSent(true);
-  }
-
-  return (
-    <motion.div
-      initial={reduce ? false : { opacity: 0, y: 12 }}
-      whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      className="max-w-xl border border-white/[0.1] bg-[#0a0a09] p-6 sm:p-8"
-    >
-      <p className="text-sm text-zinc-500">
-        Opens your mail app to send a signup request. Swap for Mailchimp,
-        Buttondown, or a server action when you are ready.
-      </p>
-      <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="ml-name" className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">
-            Name
-          </label>
-          <input
-            id="ml-name"
-            name="name"
-            type="text"
-            autoComplete="name"
-            className="mt-2 w-full border border-white/15 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-[var(--accent)]/50"
-          />
-        </div>
-        <div>
-          <label htmlFor="ml-email" className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">
-            Email
-          </label>
-          <input
-            id="ml-email"
-            name="email"
-            type="email"
-            required
-            autoComplete="email"
-            className="mt-2 w-full border border-white/15 bg-black/50 px-4 py-3 text-sm text-white outline-none transition focus:border-[var(--accent)]/50"
-          />
-        </div>
-        <button
-          type="submit"
-          className="border border-[var(--accent)]/40 bg-[var(--accent)]/10 py-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--accent)] transition hover:bg-[var(--accent)]/20"
-        >
-          Join
-        </button>
-      </form>
-      {sent ? (
-        <p className="mt-4 text-xs text-zinc-500">If your mail client opened, you are set.</p>
-      ) : null}
-    </motion.div>
   );
 }
