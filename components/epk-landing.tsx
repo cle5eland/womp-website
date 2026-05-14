@@ -175,7 +175,7 @@ export function EpkLanding({
       <div className="grain" aria-hidden />
 
       <SiteHeader
-        logoHref="#top"
+        logoHref="/"
         navItems={navItems}
         showBookingContact
         instagramHref={instagramProfileUrl}
