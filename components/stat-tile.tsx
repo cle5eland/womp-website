@@ -14,8 +14,8 @@ import { formatCompactStat } from "@/lib/format-compact-stat";
 /**
  * Shared visual primitives for "streaming snapshot" stat strips.
  *
- * The same Counter / StatTile / EqualizerBars are used by both the Spotify
- * and SoundCloud panels on the EPK so the platforms stay visually parallel.
+ * The same Counter / StatTile / EqualizerBars are used by the unified
+ * `StreamingSnapshot` panel so the platforms stay visually parallel.
  */
 
 /**
@@ -64,6 +64,9 @@ export function StatTile({
   delay = 0,
   highlight = false,
   footnote,
+  className = "",
+  /** No card border or background — for use inside a framed column. */
+  bare = false,
   /** Tailwind classes for the highlight border + tint. Defaults to site accent. */
   highlightBorderClass = "border-[var(--accent)]/35 bg-[var(--accent)]/[0.04] glow-box",
   /** Tailwind text color used when `highlight` is true. */
@@ -77,51 +80,57 @@ export function StatTile({
   delay?: number;
   highlight?: boolean;
   footnote?: string;
+  className?: string;
+  bare?: boolean;
   highlightBorderClass?: string;
   highlightTextClass?: string;
   highlightRuleClass?: string;
 }) {
+  const cardFrame =
+    !bare &&
+    "relative flex min-h-0 flex-col overflow-hidden border bg-black/50 p-4 sm:p-5 " +
+    (highlight ? highlightBorderClass : "border-white/[0.09]");
+
+  const bareFrame = bare && "relative flex min-h-0 flex-col py-4";
+
+  const valueColor =
+    highlight && !bare ? highlightTextClass : "text-white";
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 14 }}
+      initial={{ opacity: 0, y: 10 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-15%" }}
-      transition={{ delay, duration: 0.45 }}
-      className={
-        "relative overflow-hidden border bg-black/50 p-6 sm:p-7 " +
-        (highlight ? highlightBorderClass : "border-white/[0.09]")
-      }
+      transition={{ delay, duration: 0.4 }}
+      className={[cardFrame, bareFrame, className].filter(Boolean).join(" ")}
     >
       <p className="text-[9px] font-medium uppercase tracking-[0.35em] text-zinc-500">
         {kicker}
       </p>
-      <p
-        className={
-          "font-display mt-3 text-5xl leading-none sm:text-6xl " +
-          (highlight ? highlightTextClass : "text-white")
-        }
-      >
+      <p className={"font-display mt-1.5 text-4xl leading-none sm:text-5xl " + valueColor}>
         <Counter value={value} />
       </p>
-      <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.3em] text-zinc-400">
+      <p className="mt-1.5 text-[10px] font-medium uppercase tracking-[0.3em] text-zinc-400">
         {label}
       </p>
       {footnote ? (
-        <p className="mt-2 text-[10px] text-zinc-600">{footnote}</p>
+        <p className="mt-2 text-[10px] leading-snug text-zinc-500">{footnote}</p>
       ) : null}
 
-      <motion.span
-        aria-hidden
-        initial={{ scaleX: 0 }}
-        whileInView={{ scaleX: 1 }}
-        viewport={{ once: true }}
-        transition={{ delay: delay + 0.1, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-        style={{ transformOrigin: "left" }}
-        className={
-          "absolute inset-x-0 bottom-0 h-px " +
-          (highlight ? highlightRuleClass : "bg-white/15")
-        }
-      />
+      {!bare ? (
+        <motion.span
+          aria-hidden
+          initial={{ scaleX: 0 }}
+          whileInView={{ scaleX: 1 }}
+          viewport={{ once: true }}
+          transition={{ delay: delay + 0.1, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+          style={{ transformOrigin: "left" }}
+          className={
+            "absolute inset-x-0 bottom-0 h-px " +
+            (highlight ? highlightRuleClass : "bg-white/15")
+          }
+        />
+      ) : null}
     </motion.div>
   );
 }

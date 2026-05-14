@@ -4,11 +4,10 @@ import { useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 
-import { InstagramStats } from "@/components/instagram-stats";
-import { PressGallery } from "@/components/press-gallery";
-import { SoundcloudStats } from "@/components/soundcloud-stats";
+import { PressPhotoCarousel } from "@/components/press-live-carousel";
+import { HeaderSocialIcons } from "@/components/header-social-icons";
 import { SpotifyProfile } from "@/components/spotify-profile";
-import { SpotifyStats } from "@/components/spotify-stats";
+import { StreamingSnapshot } from "@/components/streaming-snapshot";
 import type { PressShot } from "@/lib/epk-data";
 import {
   bioDraft,
@@ -32,6 +31,11 @@ import type { InstagramStats as InstagramStatsRecord } from "@/lib/instagram-typ
 import type { SpotifyArtistData } from "@/lib/spotify";
 import type { SoundcloudStats as SoundcloudStatsRecord } from "@/lib/soundcloud-types";
 
+/** Local calendar day `YYYY-MM-DD` for comparing `upcomingShows[].endDate`. */
+function localDateYmd(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 const fadeUp = {
   hidden: { opacity: 0, y: 28 },
   show: (i: number) => ({
@@ -53,7 +57,7 @@ function SectionShell({
   className = "",
 }: {
   id?: string;
-  kicker: string;
+  kicker?: string;
   title: string;
   children: React.ReactNode;
   className?: string;
@@ -71,10 +75,17 @@ function SectionShell({
           transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
           className="mb-10 max-w-3xl"
         >
-          <p className="text-[10px] font-medium uppercase tracking-[0.45em] text-[var(--accent)]">
-            {kicker}
-          </p>
-          <h2 className="font-display mt-3 text-5xl uppercase leading-[0.95] text-white sm:text-6xl md:text-7xl">
+          {kicker ? (
+            <p className="text-[10px] font-medium uppercase tracking-[0.45em] text-[var(--accent)]">
+              {kicker}
+            </p>
+          ) : null}
+          <h2
+            className={
+              "font-display text-5xl uppercase leading-[0.95] text-white sm:text-6xl md:text-7xl " +
+              (kicker ? "mt-3" : "")
+            }
+          >
             {title}
           </h2>
         </motion.div>
@@ -117,6 +128,27 @@ export function EpkLanding({
       }
     : null;
 
+  const mergedPhotos: PressShot[] = (() => {
+    const seen = new Set<string>();
+    const out: PressShot[] = [];
+    for (const p of pressShots) {
+      if (!seen.has(p.src)) {
+        seen.add(p.src);
+        out.push(p);
+      }
+    }
+    for (const g of galleryImages) {
+      if (!seen.has(g.src)) {
+        seen.add(g.src);
+        out.push({ src: g.src, alt: g.alt });
+      }
+    }
+    return out;
+  })();
+
+  const todayYmd = localDateYmd(new Date());
+  const futureShows = upcomingShows.filter((s) => s.endDate >= todayYmd);
+
   return (
     <div className="relative min-h-screen bg-[#050505] text-zinc-200">
       <div className="grain" aria-hidden />
@@ -144,12 +176,18 @@ export function EpkLanding({
               </a>
             ))}
           </nav>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <HeaderSocialIcons
+              className="hidden sm:flex"
+              instagramHref={instagramProfileUrl}
+              spotifyHref={spotifyArtistUrl}
+              soundcloudHref={soundcloudProfileUrl}
+            />
             <a
               href={`mailto:${bookingEmail}`}
               className="hidden rounded-none border border-white/20 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.25em] text-white transition hover:border-[var(--accent)] hover:text-[var(--accent)] sm:inline-block"
             >
-              Book
+              Contact
             </a>
             <button
               type="button"
@@ -185,8 +223,15 @@ export function EpkLanding({
                 href={`mailto:${bookingEmail}`}
                 className="py-3 text-xs font-semibold uppercase tracking-[0.25em] text-[var(--accent)]"
               >
-                Book
+                Contact
               </a>
+              <div className="border-t border-white/10 pt-4">
+                <HeaderSocialIcons
+                  instagramHref={instagramProfileUrl}
+                  spotifyHref={spotifyArtistUrl}
+                  soundcloudHref={soundcloudProfileUrl}
+                />
+              </div>
             </div>
           </motion.div>
         ) : null}
@@ -194,7 +239,7 @@ export function EpkLanding({
 
       <main id="top">
         {/* Hero — fullscreen */}
-        <section className="relative flex min-h-[100dvh] flex-col justify-end overflow-hidden">
+        <section className="relative flex min-h-screen min-h-[100svh] flex-col justify-end overflow-hidden">
           <div className="absolute inset-0">
             <Image
               src={heroImage}
@@ -214,13 +259,13 @@ export function EpkLanding({
           </div>
           <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-8 pt-32 sm:px-8 sm:pb-10 md:px-12 md:pb-12">
             <div className="max-w-xl border border-white/15 bg-[#050505]/55 p-6 shadow-[0_0_80px_-20px_rgba(0,0,0,0.9)] backdrop-blur-md sm:p-8">
-              <div className="relative mb-6 h-14 w-44 sm:mb-8 sm:h-16 sm:w-52" aria-hidden>
+              <div className="relative mb-5 h-12 w-40 sm:mb-6 sm:h-14 sm:w-44">
                 <Image
                   src={logoImage}
                   alt=""
                   fill
                   className="object-contain object-left"
-                  sizes="208px"
+                  sizes="176px"
                   priority
                 />
               </div>
@@ -233,45 +278,29 @@ export function EpkLanding({
               >
                 Electronic press kit
               </motion.p>
-              <motion.h1
-                custom={1}
-                initial="hidden"
-                animate="show"
-                variants={fadeUp}
-                className="font-display mt-3 text-4xl uppercase leading-none tracking-[0.04em] text-white drop-shadow-[0_2px_24px_rgba(0,0,0,0.9)] sm:text-5xl"
-              >
-                womp
-              </motion.h1>
               <motion.p
-                custom={2}
+                custom={1}
                 initial="hidden"
                 animate="show"
                 variants={fadeUp}
                 className="mt-5 max-w-xl text-sm leading-relaxed text-zinc-100 sm:text-base"
               >
-                Dubstep producer & DJ — Seattle, WA. Grassroots bass, warehouse
-                velocity, and stage energy built in NYC and the Pacific Northwest.
+                140 Dubstep Producer out of Seattle, WA
               </motion.p>
             <motion.div
-              custom={3}
+              custom={2}
               initial="hidden"
               animate="show"
               variants={fadeUp}
               className="mt-8 flex flex-wrap gap-3"
             >
               <a
-                href="#listen"
-                className="glow-box inline-flex items-center justify-center border border-[var(--accent)]/50 bg-[var(--accent)]/10 px-8 py-3 text-[11px] font-semibold uppercase tracking-[0.3em] text-[var(--accent)] transition hover:bg-[var(--accent)]/20"
-              >
-                Stream
-              </a>
-              <a
                 href={pressKitDriveUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center justify-center border border-white/20 bg-black/40 px-8 py-3 text-[11px] font-semibold uppercase tracking-[0.3em] text-white transition hover:border-white/40"
+                className="glow-box inline-flex items-center justify-center border border-[var(--accent)]/55 bg-[var(--accent)]/15 px-8 py-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--accent)] transition hover:bg-[var(--accent)]/25"
               >
-                Press kit
+                Download Press Kit
               </a>
             </motion.div>
             </div>
@@ -289,77 +318,106 @@ export function EpkLanding({
           </motion.div>
         </section>
 
-        {/* Streaming snapshot — Spotify + SoundCloud + Instagram panels share this section */}
+        {/* Highlights — streaming + labels */}
         <section
           id="stats"
-          className="border-t border-white/[0.07] bg-[#080807] px-5 py-10 sm:px-8 md:px-12"
+          className="border-t border-white/[0.07] bg-[#080807] px-5 py-8 sm:px-8 md:px-12"
         >
           <div className="mx-auto max-w-6xl">
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="mb-8 max-w-3xl"
+              className="mb-6 max-w-2xl"
             >
               <p className="text-[10px] font-medium uppercase tracking-[0.45em] text-[var(--accent)]">
-                Live
+                At a glance
               </p>
-              <h2 className="font-display mt-3 text-5xl uppercase leading-[0.95] text-white sm:text-6xl">
-                Streaming snapshot
+              <h2 className="font-display mt-2 text-3xl uppercase leading-[0.95] text-white sm:text-4xl md:text-5xl">
+                Highlights
               </h2>
             </motion.div>
-            <div className="grid gap-10">
-              <SpotifyStats
-                data={spotify?.stats ?? null}
-                artistName={spotify?.artist.name}
-                artistUrl={spotify?.artist.url}
-                fetchedAtLabel={spotify?.fetchedAtLabel}
-              />
-              <SoundcloudStats
-                data={soundcloudBundle}
-                artistName={soundcloud?.fullName ?? soundcloud?.username}
-                artistUrl={soundcloud?.profileUrl ?? soundcloudProfileUrl}
-                fetchedAtLabel={soundcloud?.fetchedAtLabel}
-              />
-              <InstagramStats
-                data={instagramBundle}
-                artistName={instagram?.name ?? instagram?.username}
-                artistUrl={instagram?.profileUrl ?? instagramProfileUrl}
-                fetchedAtLabel={instagram?.fetchedAtLabel}
-              />
-            </div>
+            <StreamingSnapshot
+              spotify={{
+                stats: spotify?.stats ?? null,
+                artistUrl: spotify?.artist.url,
+                fetchedAtLabel: spotify?.fetchedAtLabel,
+              }}
+              soundcloud={{
+                data: soundcloudBundle,
+                artistUrl: soundcloud?.profileUrl ?? soundcloudProfileUrl,
+                fetchedAtLabel: soundcloud?.fetchedAtLabel,
+              }}
+              instagram={{
+                data: instagramBundle,
+                artistUrl: instagram?.profileUrl ?? instagramProfileUrl,
+                fetchedAtLabel: instagram?.fetchedAtLabel,
+              }}
+            />
           </div>
         </section>
 
+        <SectionShell id="bio" kicker="Artist" title="Bio">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="max-w-3xl space-y-5 text-sm leading-relaxed text-zinc-400"
+          >
+            <p className="border-l-2 border-[var(--accent)]/60 pl-5 text-base text-zinc-300">
+              {bioDraft.lead}
+            </p>
+            {bioDraft.body.map((paragraph, i) => (
+              <p key={i} className="text-zinc-400">
+                {paragraph}
+              </p>
+            ))}
+          </motion.div>
+        </SectionShell>
+
         <SectionShell id="shows" kicker="Live" title="Upcoming shows">
           <div className="grid gap-4">
-            {upcomingShows.map((show, i) => (
-              <motion.article
-                key={`${show.date}-${show.venue}`}
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.06 * i }}
-                className="flex flex-col gap-3 border border-white/[0.09] bg-[#0a0a09] p-6 sm:flex-row sm:items-end sm:justify-between"
-              >
-                <div>
-                  <p className="font-display text-4xl text-[var(--accent)] sm:text-5xl">
-                    {show.date}
+            {futureShows.length === 0 ? (
+              <p className="text-sm text-zinc-500">No upcoming dates right now — check back soon.</p>
+            ) : (
+              futureShows.map((show, i) => (
+                <motion.a
+                  key={`${show.date}-${show.venue}`}
+                  href={show.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  initial={{ opacity: 0, y: 10 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.06 * i }}
+                  className="group block border border-white/[0.09] bg-[#0a0a09] p-6 transition hover:border-[var(--accent)]/35 hover:bg-[#0d0d0c] sm:flex sm:flex-row sm:items-end sm:justify-between"
+                >
+                  <div>
+                    <p className="font-display text-4xl text-[var(--accent)] sm:text-5xl">
+                      {show.date}
+                    </p>
+                    <p className="mt-2 text-sm font-medium uppercase tracking-[0.2em] text-white">
+                      {show.venue}
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-500">{show.city}</p>
+                  </div>
+                  <p className="mt-3 max-w-sm text-xs leading-relaxed text-zinc-500 sm:mt-0">
+                    {show.note}
+                    <span className="mt-2 block text-[10px] font-semibold uppercase tracking-[0.25em] text-[var(--accent)] opacity-0 transition group-hover:opacity-100">
+                      Details →
+                    </span>
                   </p>
-                  <p className="mt-2 text-sm font-medium uppercase tracking-[0.2em] text-white">
-                    {show.venue}
-                  </p>
-                  <p className="mt-1 text-xs text-zinc-500">{show.city}</p>
-                </div>
-                <p className="max-w-sm text-xs leading-relaxed text-zinc-500">
-                  {show.note}
-                </p>
-              </motion.article>
-            ))}
+                </motion.a>
+              ))
+            )}
           </div>
         </SectionShell>
 
-        <SectionShell id="listen" kicker="Listen" title="Stream">
+        <SectionShell
+          id="listen"
+          title="Listen"
+          className="!py-12 sm:!py-14 md:!py-16"
+        >
           <SpotifyProfile
             data={spotify}
             embedSrc={spotifyArtistEmbedSrc}
@@ -368,76 +426,8 @@ export function EpkLanding({
           />
         </SectionShell>
 
-        <SectionShell id="bio" kicker="Artist" title="Bio">
-          <div className="grid gap-12 lg:grid-cols-[1.05fr_0.95fr]">
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="space-y-5 text-sm leading-relaxed text-zinc-400"
-            >
-              <p className="border-l-2 border-[var(--accent)]/60 pl-5 text-base text-zinc-300">
-                {bioDraft.lead}
-              </p>
-              {bioDraft.body.map((paragraph, i) => (
-                <p key={i} className="text-zinc-400">
-                  {paragraph}
-                </p>
-              ))}
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.06 }}
-              className="border border-white/[0.08] bg-[#0c0c0b] p-6"
-            >
-              <p className="text-[10px] font-medium uppercase tracking-[0.35em] text-zinc-500">
-                Booking & press
-              </p>
-              <a
-                href={`mailto:${bookingEmail}`}
-                className="mt-3 block font-display text-3xl uppercase text-white hover:text-[var(--accent)]"
-              >
-                {bookingEmail}
-              </a>
-              <a
-                href={pressKitDriveUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-6 inline-flex text-[11px] font-semibold uppercase tracking-[0.25em] text-[var(--accent)]"
-              >
-                Download press kit →
-              </a>
-            </motion.div>
-          </div>
-        </SectionShell>
-
-        <SectionShell id="press" kicker="Imagery" title="Press & live photos">
-          <div className="grid gap-10 lg:grid-cols-2">
-            <div>
-              <PressGallery images={pressShots} />
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-              {galleryImages.map((img) => (
-                <figure
-                  key={img.src}
-                  className="relative aspect-[4/5] overflow-hidden border border-white/10 bg-black sm:min-h-0"
-                >
-                  <Image
-                    src={img.src}
-                    alt={img.alt}
-                    fill
-                    sizes="(min-width: 1024px) 28vw, (min-width: 480px) 46vw, 100vw"
-                    className="object-cover"
-                  />
-                  <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent px-3 py-3 text-[9px] uppercase tracking-[0.25em] text-zinc-500">
-                    {img.alt}
-                  </figcaption>
-                </figure>
-              ))}
-            </div>
-          </div>
+        <SectionShell id="press" title="Photos">
+          <PressPhotoCarousel images={mergedPhotos} />
         </SectionShell>
 
         <SectionShell id="video" kicker="Motion" title="Video clips">
@@ -493,32 +483,46 @@ export function EpkLanding({
           </div>
         </SectionShell>
 
-        <section className="border-t border-white/[0.07] bg-[#080807] px-5 py-16 sm:px-8 md:px-12">
+        <section
+          id="contact"
+          className="scroll-mt-24 border-t border-white/[0.07] bg-[#080807] px-5 py-16 sm:px-8 md:px-12"
+        >
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-8 border border-[var(--accent)]/25 bg-[var(--accent)]/[0.04] p-8 sm:flex-row sm:items-center"
+            className="mx-auto max-w-6xl border border-[var(--accent)]/25 bg-[var(--accent)]/[0.04] p-8 sm:p-10"
           >
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-[0.4em] text-[var(--accent)]">
-                Assets
-              </p>
-              <h3 className="font-display mt-2 text-4xl uppercase text-white sm:text-5xl">
-                Full press kit
-              </h3>
-              <p className="mt-3 max-w-md text-sm text-zinc-500">
-                Logos, hi-res photos, and rider materials live in the shared drive.
-              </p>
+            <h3 className="font-display text-4xl uppercase leading-tight text-white sm:text-5xl">
+              Full press kit and contact
+            </h3>
+            <div className="mt-8 grid gap-10 lg:grid-cols-2 lg:gap-12 lg:divide-x lg:divide-white/[0.08]">
+              <div className="min-w-0 lg:pr-10">
+                <p className="max-w-md text-sm text-zinc-500">
+                  Logos, hi-res photos, and rider materials live in the shared drive.
+                </p>
+                <a
+                  href={pressKitDriveUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-6 inline-flex border border-white/30 bg-black/50 px-8 py-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-white transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+                >
+                  Google Drive
+                </a>
+              </div>
+              <div className="min-w-0 lg:pl-10">
+                <a
+                  href={`mailto:${bookingEmail}`}
+                  className="block font-display text-3xl uppercase leading-tight tracking-wide text-white transition hover:text-[var(--accent)] sm:text-4xl md:text-5xl"
+                >
+                  {bookingEmail}
+                </a>
+                <p className="mt-4 max-w-xl text-sm text-zinc-500">
+                  Bookings, press, and festival inquiries — include dates, capacity,
+                  and production details when you write.
+                </p>
+              </div>
             </div>
-            <a
-              href={pressKitDriveUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex shrink-0 border border-white/30 bg-black/50 px-8 py-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-white transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-            >
-              Google Drive
-            </a>
           </motion.div>
         </section>
       </main>
@@ -526,9 +530,8 @@ export function EpkLanding({
       <footer className="border-t border-white/[0.08] bg-black px-5 py-14 sm:px-8 md:px-12">
         <div className="mx-auto flex max-w-6xl flex-col gap-10 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="font-display text-5xl uppercase text-white">womp</p>
-            <p className="mt-3 text-xs uppercase tracking-[0.25em] text-zinc-600">
-              © {new Date().getFullYear()} · EPK
+            <p className="text-xs uppercase tracking-[0.28em] text-zinc-400">
+              © {new Date().getFullYear()} · womp
             </p>
           </div>
           <nav className="flex flex-wrap gap-x-8 gap-y-3">

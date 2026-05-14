@@ -118,7 +118,7 @@ export function SpotifyProfile({
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+    <div className="grid gap-3 lg:grid-cols-[0.95fr_1.05fr] lg:gap-5">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -183,14 +183,14 @@ export function SpotifyProfile({
           href={artist.url || fallbackArtistUrl || "#"}
           target="_blank"
           rel="noreferrer"
-          className="flex items-center justify-between border-t border-white/[0.07] px-5 py-4 text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--accent)] transition hover:bg-[var(--accent)]/[0.05]"
+          className="flex items-center justify-between border-t border-white/[0.07] px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--accent)] transition hover:bg-[var(--accent)]/[0.05]"
         >
           Open on Spotify
           <span aria-hidden>→</span>
         </a>
       </motion.div>
 
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -198,14 +198,9 @@ export function SpotifyProfile({
           transition={{ duration: 0.5, delay: 0.05 }}
           className="border border-white/[0.09] bg-black/50"
         >
-          <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-3">
+          <div className="border-b border-white/[0.07] px-5 py-3">
             <p className="text-[10px] font-medium uppercase tracking-[0.35em] text-zinc-500">
               Top tracks
-            </p>
-            <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-600">
-              {tracks.length === 0
-                ? ""
-                : `${tracks.length} of ${topTracks.length} · tap to play`}
             </p>
           </div>
           <ol className="divide-y divide-white/[0.05]">
@@ -310,15 +305,12 @@ export function SpotifyProfile({
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="glow-box border border-white/[0.1] bg-black/50 p-3"
+          className="glow-box border border-white/[0.1] bg-black/50 p-2 sm:p-2.5"
         >
-          <p className="mb-3 px-1 text-[10px] font-medium uppercase tracking-[0.35em] text-zinc-500">
-            Player — Spotify IFrame API
-          </p>
           <SpotifyIframePlayer
             uri={activeUri || initialArtistUri}
             fallbackEmbedSrc={embedSrc}
-            height={352}
+            height={380}
             onReady={(c) => {
               playerControllerRef.current = c;
             }}
