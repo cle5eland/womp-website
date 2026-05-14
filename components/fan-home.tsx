@@ -115,7 +115,7 @@ export function FanHome({ spotify }: { spotify: SpotifyArtistData | null }) {
 
       <main id="top">
         <section
-          className="relative flex max-lg:h-[100svh] max-lg:max-h-[100svh] overflow-hidden lg:min-h-screen lg:min-h-[100svh] lg:max-h-none"
+          className="relative flex max-lg:h-[100svh] max-lg:max-h-[100svh] flex-col justify-end overflow-hidden lg:min-h-screen lg:min-h-[100svh] lg:max-h-none"
           style={
             mobileHeroLockPx !== null
               ? {
@@ -137,6 +137,17 @@ export function FanHome({ spotify }: { spotify: SpotifyArtistData | null }) {
               sizes="100vw"
             />
           </div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.8, duration: 0.8 }}
+            className="relative z-10 mx-auto flex w-full max-w-6xl justify-center px-5 pb-4 sm:px-8"
+            aria-hidden
+          >
+            <span className="text-[9px] uppercase tracking-[0.5em] text-zinc-600">
+              scroll
+            </span>
+          </motion.div>
         </section>
 
         <FanSection id="shows" kicker="Live" title="Upcoming shows">
