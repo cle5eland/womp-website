@@ -37,6 +37,19 @@ function localDateYmd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+const fadeUp = {
+  hidden: { opacity: 0, y: 28 },
+  show: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: {
+      delay: 0.06 * i,
+      duration: 0.55,
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+    },
+  }),
+};
+
 /** Matches Tailwind `lg` (1024px) — hero lock only below this width. */
 const MOBILE_HERO_MQ = "(max-width: 1023px)";
 
@@ -216,10 +229,22 @@ export function EpkLanding({
           </div>
           <div className="relative z-10 mx-auto hidden w-full max-w-6xl px-5 pb-8 pt-32 sm:px-8 sm:pb-10 md:block md:px-12 md:pb-12">
             <div className="max-w-xl border border-white/15 bg-[#050505]/55 p-6 shadow-[0_0_80px_-20px_rgba(0,0,0,0.9)] backdrop-blur-md sm:p-8">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.55em] text-[var(--accent)] drop-shadow-[0_1px_12px_rgba(0,0,0,0.85)]">
+              <motion.p
+                custom={0}
+                initial="hidden"
+                animate="show"
+                variants={fadeUp}
+                className="text-[10px] font-semibold uppercase tracking-[0.55em] text-[var(--accent)] drop-shadow-[0_1px_12px_rgba(0,0,0,0.85)]"
+              >
                 Electronic press kit
-              </p>
-              <h1 className="mt-4 block w-full min-w-0 sm:mt-5">
+              </motion.p>
+              <motion.h1
+                custom={1}
+                initial="hidden"
+                animate="show"
+                variants={fadeUp}
+                className="mt-4 block w-full min-w-0 sm:mt-5"
+              >
                 <span className="relative block h-14 w-44 shrink-0 sm:h-16 sm:w-52 md:h-[4.75rem] md:w-60">
                   <Image
                     src={logoImage}
@@ -230,11 +255,23 @@ export function EpkLanding({
                     priority
                   />
                 </span>
-              </h1>
-              <p className="mt-5 max-w-xl text-sm leading-relaxed text-zinc-100 sm:text-base">
+              </motion.h1>
+              <motion.p
+                custom={2}
+                initial="hidden"
+                animate="show"
+                variants={fadeUp}
+                className="mt-5 max-w-xl text-sm leading-relaxed text-zinc-100 sm:text-base"
+              >
                 {heroTagline}
-              </p>
-              <div className="mt-8 flex flex-wrap gap-3">
+              </motion.p>
+              <motion.div
+                custom={3}
+                initial="hidden"
+                animate="show"
+                variants={fadeUp}
+                className="mt-8 flex flex-wrap gap-3"
+              >
                 <a
                   href={pressKitDriveUrl}
                   target="_blank"
@@ -243,17 +280,20 @@ export function EpkLanding({
                 >
                   Download Press Kit
                 </a>
-              </div>
+              </motion.div>
             </div>
           </div>
-          <div
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.8, duration: 0.8 }}
             className="relative z-10 mx-auto flex w-full max-w-6xl justify-center px-5 pb-4 sm:px-8"
             aria-hidden
           >
             <span className="text-[9px] uppercase tracking-[0.5em] text-zinc-600">
               scroll
             </span>
-          </div>
+          </motion.div>
         </section>
 
         {/* Highlights — streaming + labels */}
