@@ -31,25 +31,11 @@ import {
 import type { InstagramStats as InstagramStatsRecord } from "@/lib/instagram-types";
 import type { SpotifyArtistData } from "@/lib/spotify";
 import type { SoundcloudStats as SoundcloudStatsRecord } from "@/lib/soundcloud-types";
-import { useBfCacheRemountKey } from "@/lib/use-bf-cache-remount-key";
 
 /** Local calendar day `YYYY-MM-DD` for comparing `upcomingShows[].endDate`. */
 function localDateYmd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 28 },
-  show: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: {
-      delay: 0.06 * i,
-      duration: 0.55,
-      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
-    },
-  }),
-};
 
 /** Matches Tailwind `lg` (1024px) — hero lock only below this width. */
 const MOBILE_HERO_MQ = "(max-width: 1023px)";
@@ -183,7 +169,6 @@ export function EpkLanding({
   const futureShows = upcomingShows.filter((s) => s.endDate >= todayYmd);
 
   const mobileHeroLockPx = useMobileHeroHeightLock();
-  const heroRemountKey = useBfCacheRemountKey();
 
   return (
     <div className="relative min-h-screen bg-[#050505] text-zinc-200">
@@ -229,27 +214,12 @@ export function EpkLanding({
             */}
             <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#050505] to-transparent" />
           </div>
-          <div
-            key={heroRemountKey}
-            className="relative z-10 mx-auto hidden w-full max-w-6xl px-5 pb-8 pt-32 sm:px-8 sm:pb-10 md:block md:px-12 md:pb-12"
-          >
+          <div className="relative z-10 mx-auto hidden w-full max-w-6xl px-5 pb-8 pt-32 sm:px-8 sm:pb-10 md:block md:px-12 md:pb-12">
             <div className="max-w-xl border border-white/15 bg-[#050505]/55 p-6 shadow-[0_0_80px_-20px_rgba(0,0,0,0.9)] backdrop-blur-md sm:p-8">
-              <motion.p
-                custom={0}
-                initial="hidden"
-                animate="show"
-                variants={fadeUp}
-                className="text-[10px] font-semibold uppercase tracking-[0.55em] text-[var(--accent)] drop-shadow-[0_1px_12px_rgba(0,0,0,0.85)]"
-              >
+              <p className="text-[10px] font-semibold uppercase tracking-[0.55em] text-[var(--accent)] drop-shadow-[0_1px_12px_rgba(0,0,0,0.85)]">
                 Electronic press kit
-              </motion.p>
-              <motion.h1
-                custom={1}
-                initial="hidden"
-                animate="show"
-                variants={fadeUp}
-                className="mt-4 block w-full min-w-0 sm:mt-5"
-              >
+              </p>
+              <h1 className="mt-4 block w-full min-w-0 sm:mt-5">
                 <span className="relative block h-14 w-44 shrink-0 sm:h-16 sm:w-52 md:h-[4.75rem] md:w-60">
                   <Image
                     src={logoImage}
@@ -260,23 +230,11 @@ export function EpkLanding({
                     priority
                   />
                 </span>
-              </motion.h1>
-              <motion.p
-                custom={2}
-                initial="hidden"
-                animate="show"
-                variants={fadeUp}
-                className="mt-5 max-w-xl text-sm leading-relaxed text-zinc-100 sm:text-base"
-              >
+              </h1>
+              <p className="mt-5 max-w-xl text-sm leading-relaxed text-zinc-100 sm:text-base">
                 {heroTagline}
-              </motion.p>
-              <motion.div
-                custom={3}
-                initial="hidden"
-                animate="show"
-                variants={fadeUp}
-                className="mt-8 flex flex-wrap gap-3"
-              >
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
                 <a
                   href={pressKitDriveUrl}
                   target="_blank"
@@ -285,21 +243,17 @@ export function EpkLanding({
                 >
                   Download Press Kit
                 </a>
-              </motion.div>
+              </div>
             </div>
           </div>
-          <motion.div
-            key={`hero-scroll-${heroRemountKey}`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8, duration: 0.8 }}
+          <div
             className="relative z-10 mx-auto flex w-full max-w-6xl justify-center px-5 pb-4 sm:px-8"
             aria-hidden
           >
             <span className="text-[9px] uppercase tracking-[0.5em] text-zinc-600">
               scroll
             </span>
-          </motion.div>
+          </div>
         </section>
 
         {/* Highlights — streaming + labels */}
