@@ -5,6 +5,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 
 import { PressPhotoCarousel } from "@/components/press-live-carousel";
+import { VideoClipsCarousel } from "@/components/video-clips-carousel";
 import { SiteHeader } from "@/components/site-header";
 import { SpotifyProfile } from "@/components/spotify-profile";
 import { StreamingSnapshot } from "@/components/streaming-snapshot";
@@ -413,8 +414,8 @@ export function EpkLanding({
             className="mb-10 flex flex-col gap-4 border border-white/[0.09] bg-[#0a0a09] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6"
           >
             <p className="max-w-xl text-sm leading-relaxed text-zinc-400">
-              Embedded sets below. ProRes / masters and extra cuts live in the
-              shared video folder.
+              Clips below — use prev/next or the dots to browse. ProRes /
+              masters and extra cuts live in the shared video folder.
             </p>
             <a
               href={videosDriveFolderUrl}
@@ -425,36 +426,7 @@ export function EpkLanding({
               Video folder →
             </a>
           </motion.div>
-          <div className="grid gap-6 md:grid-cols-2">
-            {videos.map((video, i) => (
-              <motion.article
-                key={video.url}
-                initial={{ opacity: 1, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.12 }}
-                transition={{ delay: 0.07 * i }}
-                className="overflow-hidden border border-white/[0.09] bg-black/60"
-              >
-                <div className="aspect-video w-full">
-                  <iframe
-                    className="h-full w-full"
-                    src={video.url}
-                    title={video.title}
-                    loading="lazy"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                  />
-                </div>
-                <div className="border-t border-white/[0.06] px-5 py-4">
-                  <h3 className="text-sm font-medium uppercase tracking-[0.15em] text-white">
-                    {video.title}
-                  </h3>
-                  <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-zinc-600">
-                    {video.duration}
-                  </p>
-                </div>
-              </motion.article>
-            ))}
-          </div>
+          <VideoClipsCarousel videos={videos} />
         </SectionShell>
 
         <section

@@ -155,6 +155,41 @@ export const upcomingShows = [
 
 export const videos = [
   {
+    title: "Support for Jkyl & Hyde @ SILO",
+    url: "https://www.youtube.com/embed/x3y0kSK04Dc",
+    duration: "1:09",
+  },
+  {
+    title: "Support for Jkyl & Hyde @ SILO",
+    url: "https://www.youtube.com/embed/ZyD1e9zrifs",
+    duration: "1:43",
+  },
+  {
+    title: "Support for Jkyl & Hyde @ SILO",
+    url: "https://www.youtube.com/embed/b4RmzIWaLvQ",
+    duration: "0:45",
+  },
+  {
+    title: "Support for Jkyl & Hyde @ SILO",
+    url: "https://www.youtube.com/embed/NNk8qWgGic0",
+    duration: "0:53",
+  },
+  {
+    title: "Support for Jkyl & Hyde @ SILO",
+    url: "https://www.youtube.com/embed/jMcZ8EmYh84",
+    duration: "0:49",
+  },
+  {
+    title: "B2B Bronze Sun - Support for SubDocta/Stylust @ Superior Ingredients",
+    url: "https://www.youtube.com/embed/Mzy0kih3sDI",
+    duration: "1:09",
+  },
+  {
+    title: "B2B Bronze Sun - Support for SubDocta/Stylust @ Superior Ingredients",
+    url: "https://www.youtube.com/embed/iIjzVFS72b8",
+    duration: "0:39",
+  },
+  {
     title: "womp — Live @ Delirium Studios",
     url: "https://www.youtube.com/embed/cYpXqDBsaho",
     duration: "35:52",
