@@ -200,6 +200,7 @@ async function fetchAllTracksViaApi(
   userId: number,
   accessToken: string,
   revalidateSeconds: number,
+  trackCountHint?: number,
 ): Promise<RawTrack[]> {
   const initial =
     `/users/${userId}/tracks` +
@@ -207,8 +208,12 @@ async function fetchAllTracksViaApi(
   let next: string | null = initial;
   const out: RawTrack[] = [];
   const maxPages = 20;
+  const pageLimit = Math.min(
+    maxPages,
+    Math.max(1, Math.ceil((trackCountHint ?? 0) / 200) || maxPages),
+  );
 
-  for (let page = 0; page < maxPages && next; page++) {
+  for (let page = 0; page < pageLimit && next; page++) {
     const res = await apiFetch(next, accessToken, revalidateSeconds);
     if (!res.ok) break;
     const json: { collection?: RawTrack[]; next_href?: string | null } =
@@ -262,6 +267,7 @@ async function fetchViaApi(
       user.id,
       accessToken,
       revalidateSeconds,
+      asNumber(user.track_count),
     );
   } catch {
     rawTracks = [];
