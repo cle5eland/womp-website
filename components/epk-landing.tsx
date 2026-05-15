@@ -38,6 +38,19 @@ function localDateYmd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** Renders bio copy with `**emphasis**` markers as subtle strong text. */
+function renderBioInline(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+    part.startsWith("**") && part.endsWith("**") ? (
+      <strong key={i} className="font-medium text-zinc-300">
+        {part.slice(2, -2)}
+      </strong>
+    ) : (
+      part
+    ),
+  );
+}
+
 const fadeUp = {
   hidden: { opacity: 0, y: 28 },
   show: (i: number) => ({
@@ -341,11 +354,11 @@ export function EpkLanding({
             className="max-w-3xl space-y-5 text-sm leading-relaxed text-zinc-400"
           >
             <p className="border-l-2 border-[var(--accent)]/60 pl-5 text-base text-zinc-300">
-              {bioDraft.lead}
+              {renderBioInline(bioDraft.lead)}
             </p>
             {bioDraft.body.map((paragraph, i) => (
               <p key={i} className="text-zinc-400">
-                {paragraph}
+                {renderBioInline(paragraph)}
               </p>
             ))}
           </motion.div>
