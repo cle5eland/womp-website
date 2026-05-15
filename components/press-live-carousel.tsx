@@ -10,6 +10,11 @@ type Shot = { src: string; alt: string };
 const ROTATE_STEP_MS = 2000;
 const SLOT_COUNT = 4;
 
+const photoTransition = {
+  duration: 0.75,
+  ease: [0.4, 0, 0.2, 1] as [number, number, number, number],
+};
+
 function pickRandom<T>(xs: readonly T[]): T {
   return xs[Math.floor(Math.random() * xs.length)]!;
 }
@@ -127,18 +132,24 @@ export function PressPhotoCarousel({ images }: PressPhotoCarouselProps) {
             key={slot}
             className="relative aspect-[3/4] overflow-hidden border border-white/10 bg-black"
           >
-            <AnimatePresence initial={false} mode="popLayout">
+            <AnimatePresence initial={false} mode="sync">
               <motion.div
                 key={`${slot}-${shot.src}`}
-                initial={{ opacity: 1 }}
-                animate={{ opacity: 1 }}
-                exit={reduceMotion ? { opacity: 1 } : { opacity: 0 }}
-                transition={
+                initial={
                   reduceMotion
-                    ? { duration: 0 }
-                    : { duration: 0.4, ease: [0.22, 1, 0.36, 1] }
+                    ? { opacity: 1, scale: 1 }
+                    : { opacity: 0, scale: 1.03 }
                 }
-                className="absolute inset-0"
+                animate={{ opacity: 1, scale: 1 }}
+                exit={
+                  reduceMotion
+                    ? { opacity: 1, scale: 1 }
+                    : { opacity: 0, scale: 1.02 }
+                }
+                transition={
+                  reduceMotion ? { duration: 0 } : photoTransition
+                }
+                className="absolute inset-0 will-change-[opacity,transform]"
               >
                 <Image
                   src={shot.src}

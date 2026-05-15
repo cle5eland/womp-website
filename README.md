@@ -43,6 +43,25 @@ If credentials are not configured, the site degrades gracefully by reading the s
 
 **Production:** set these in your host's secret manager (Vercel Project Settings → Environment Variables, or the Cursor Cloud Agents secrets dashboard). Don't paste real values into chat or commits — rotate immediately if you do.
 
+## Public assets (images)
+
+Press photos, hero, and profile images live under `public/assets/`. **Run this before committing new or replaced images:**
+
+```bash
+npm run optimize-assets
+```
+
+The script resizes/compresses large JPEG/PNG/WebP files (gallery long edge ≤ 2000px, hero ≤ 2560px, profile ≤ 1600px). Unoptimized multi‑megabyte originals make Next.js `Image` optimization spike server memory on Vercel.
+
+**Checklist when adding gallery photos:**
+
+1. Drop files in `public/assets/gallery/`
+2. `npm run optimize-assets`
+3. Remove duplicate stems if you have both `.jpg` and `.jpeg` for the same shot
+4. If you renamed `profile_pic` (e.g. `.png` → `.jpg`), update `profileHighlightImage` in `lib/epk-data.ts`
+
+Agents: use the project skill `.cursor/skills/optimize-public-assets` for the full workflow.
+
 ### Instagram Graph API
 
 The Instagram stats panel pulls follower / following / post counts via the official Instagram Graph API (Instagram Login flow). To enable it:

@@ -3,7 +3,7 @@
 export type PressShot = { src: string; alt: string };
 
 export const pressKitDriveUrl =
-  "https://drive.google.com/drive/folders/1zPmbzQlKLbTiZ1GcNuXYJxxsIQOAZWs2?usp=sharing";
+  "https://drive.google.com/drive/folders/1EVdwxegL8xlPmgRyN1WQC3FMQCD_bxaX?usp=sharing";
 
 /** Additional / full-length video files (download or preview in Drive). */
 export const videosDriveFolderUrl =
@@ -59,8 +59,8 @@ export const heroImageUnoptimized =
   heroImage.includes("googleusercontent.com") ||
   (!envHeroUrl && heroImage.startsWith("/"));
 
-/** Highlights streaming row — portrait beside platform stats (`public/assets/profile_pic.png`). */
-export const profileHighlightImage = "/assets/profile_pic.png";
+/** Highlights streaming row — portrait beside platform stats (`public/assets/profile_pic.jpg`). */
+export const profileHighlightImage = "/assets/profile_pic.jpg";
 
 /** White wordmark from djwomp.com (Wix CDN). */
 export const logoImage =
@@ -167,14 +167,12 @@ export const videos = [
 ] as const;
 
 export const bioDraft = {
-  /** Headline paragraph — rendered with the accent left-rule. */
+  /** Headline paragraph — rendered with the accent left-rule. Wrap phrases in ** for emphasis. */
   lead:
-    "Every journey has a beginning, but this one starts in a sweaty, space-octopus-painted garage. Five twenty-somethings on the wrong side of a year of social distancing flail to a clipped 808. In the distance, sirens.",
-  /** Body paragraphs — rendered as regular long-form copy. */
+    "Quin Thompson, better known as **womp**, writes bass music for the space in between \u2014 the deep and the loud, the clean and the distorted \u2014 pairing heavyweight low-end with surgical, expressive sound design. Now anchored in Seattle, his sonic blueprint pulls from **LYNY**, **Peekaboo**, and **Xotix**, turning collision and contrast into a signature rather than a side effect.",
+  /** Body paragraphs — rendered as regular long-form copy. Wrap phrases in ** for emphasis. */
   body: [
-    "This might be an atypical origin story, but for Quin Thompson — aka womp — these were atypical times. His recently discovered taste for west coast bass was cut short by a global pandemic, and the Asheville, North Carolina native found himself on the other side of the country, bumping Griz and Subtronics on first-gen Airpods, and missing home.",
-    "Hence, octopus garage. Two Amazon par lights, a fog machine, and a woefully underpowered 10-inch PA later, womp had his first gig and, more importantly, his first fans. Endless energy on \u201Cstage\u201D complemented a yee-haw approach to performance, and eventually the one-car garage wouldn\u2019t cut it anymore.",
-    "Since then, womp has grown from garage raves into a rising force in the dubstep scene. Through steady releases, including his first single on SubCarbon Records (Ganja White Night\u2019s label), he\u2019s racked up almost half a million streams on his music. Along the way, he\u2019s shared the stage with Jkyl & Hyde, TVBOO, Chef Boyarbeatz, Shanghai Doom, Pierce, SubDocta, Stylust, and others, and built up a sonic profile heavily influenced by LYNY, Peekaboo, and Xotix.",
-    "But even though the venue, the speakers, and the crowd have grown, that garage is still at the center of everything \u2014 and womp seeks to replicate that simple, yet so human experience every time he gets on stage.",
+    "That approach has translated into traction. His catalog has surpassed **half a million streams**, including a debut release on **SubCarbon Records** (Ganja White Night\u2019s label), and his footprint in the scene goes well beyond his own discography. He co-runs **Bass Freaks** and **Liminal Bass**, two collectives helping book the kind of nights he wanted to play when he was first coming up \u2014 community-first, locally driven, and loud.",
+    "Live, **womp** has shared the stage with **Jkyl & Hyde**, **TVBOO**, **Cannabliss**, **Chef Boyarbeatz**, **Shanghai Doom**, **Pierce**, **SubDocta**, **Stylust**, and more \u2014 and this summer brings his **festival debut** at **Friendzy Fest** and **Mountain Wubz**: same intent he started with, bigger speakers to do it on.",
   ],
 } as const;
