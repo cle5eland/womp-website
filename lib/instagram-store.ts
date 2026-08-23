@@ -1,11 +1,12 @@
 import "server-only";
 
-import { get as getEdgeConfigValue } from "@vercel/edge-config";
+import { get as getGlobalConfigValue } from "@vercel/global-config";
 
 import type { InstagramStats } from "@/lib/instagram-types";
 
 /**
- * Durable state for the Instagram integration, kept in Vercel Edge Config.
+ * Durable state for the Instagram integration, kept in Vercel Global Config
+ * (the current name for what used to be branded "Edge Config" — same store).
  *
  * Two things live here, both written by the crons in `app/api/cron/*` and read
  * on the render path by `lib/instagram-stats.ts`:
@@ -17,9 +18,11 @@ import type { InstagramStats } from "@/lib/instagram-types";
  *     slightly stale follower counts rather than a visible "unavailable"
  *     state on the page.
  *
- * Reads go through the `@vercel/edge-config` SDK (via the `EDGE_CONFIG`
- * connection string). Writes go through the REST API, which needs a Vercel
- * API token — see README for scoping it to this project only.
+ * Reads go through `@vercel/global-config`'s default client, which resolves
+ * its connection string as `GLOBAL_CONFIG ?? EDGE_CONFIG` — whichever one
+ * Vercel injected when the store was connected to this project (this has
+ * been observed to vary). Writes go through the REST API, which needs a
+ * Vercel API token — see README for scoping it to this project only.
  */
 
 export const TOKEN_KEY = "instagram_access_token";
@@ -32,14 +35,14 @@ export const SNAPSHOT_KEY = "instagram_stats_snapshot";
  */
 const SNAPSHOT_MAX_AGE_DAYS = 30;
 
-function edgeConfigConfigured(): boolean {
-  return Boolean(process.env.EDGE_CONFIG);
+function storeConfigured(): boolean {
+  return Boolean(process.env.GLOBAL_CONFIG || process.env.EDGE_CONFIG);
 }
 
 async function readKey<T>(key: string): Promise<T | undefined> {
-  if (!edgeConfigConfigured()) return undefined;
+  if (!storeConfigured()) return undefined;
   try {
-    return await getEdgeConfigValue<T>(key);
+    return await getGlobalConfigValue<T>(key);
   } catch (err) {
     console.warn(
       `[instagram-store] read of "${key}" failed:`,
