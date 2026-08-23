@@ -341,6 +341,9 @@ export function EpkLanding({
               instagram={{
                 data: instagramBundle,
                 artistUrl: instagram?.profileUrl ?? instagramProfileUrl,
+                asOfLabel: instagram?.isStale
+                  ? instagram.fetchedAtLabel
+                  : undefined,
               }}
             />
           </div>

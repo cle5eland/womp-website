@@ -1,70 +1,69 @@
 import { NextResponse } from "next/server";
 
-import { resolveInstagramAccessToken } from "@/lib/instagram-stats";
+import { authorizeCronRequest } from "@/lib/cron-auth";
+import { readAccessToken, writeAccessToken } from "@/lib/instagram-store";
 import {
+  redactTokens,
   refreshInstagramToken,
   sendInstagramAlert,
   verifyInstagramToken,
-  writeInstagramTokenToEdgeConfig,
 } from "@/lib/instagram-token-refresh";
 
 /**
- * Weekly cron (see `vercel.json`) that keeps the Instagram long-lived token
- * alive indefinitely: refresh -> verify -> persist to Edge Config. Any
- * failure sends a Discord alert with the underlying reason (e.g. "token
- * already expired") so a human can rotate it manually via
- * `/api/instagram/oauth` well before the page-facing stats break.
+ * Weekly cron (see `vercel.json`) that keeps the long-lived Instagram token
+ * alive: refresh, verify the new token actually works, then persist it. Any
+ * failure alerts Discord, because an expired token can't be refreshed at all
+ * and recovery requires re-running OAuth by hand.
  *
- * Protected by `CRON_SECRET`: Vercel automatically sends
- * `Authorization: Bearer <CRON_SECRET>` on cron-triggered requests when that
- * env var is set. See https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs.
+ * For a read-only "is the token alive?" check, use `/api/cron/instagram-health`
+ * instead — this route rotates the token as a side effect.
  */
 export async function GET(request: Request) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const authHeader = request.headers.get("authorization");
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
+  const auth = authorizeCronRequest(request);
+  if (!auth.ok) {
+    return new NextResponse(auth.message, { status: auth.status });
   }
 
-  const currentToken = await resolveInstagramAccessToken();
+  const currentToken = await readAccessToken();
   if (!currentToken) {
     const msg =
-      "🔴 Instagram token refresh: no token configured (INSTAGRAM_ACCESS_TOKEN / Edge Config both empty). " +
+      "Instagram token refresh: no token configured (INSTAGRAM_ACCESS_TOKEN and Edge Config are both empty). " +
       "Run the OAuth setup flow at /api/instagram/oauth to mint one.";
     console.warn(`[instagram-refresh] ${msg}`);
     await sendInstagramAlert(msg);
-    // Non-200 so this also registers in Vercel's own cron/function failure
-    // metrics as a second, independent signal alongside the Discord alert.
+    // Non-200 so this also registers in Vercel's own cron failure metrics as a
+    // second signal alongside the Discord alert.
     return NextResponse.json({ ok: false, reason: "no-token" }, { status: 500 });
   }
 
+  let newToken: string | null = null;
   try {
-    const { accessToken, expiresInSeconds } =
-      await refreshInstagramToken(currentToken);
-    await verifyInstagramToken(accessToken);
+    const refreshed = await refreshInstagramToken(currentToken);
+    newToken = refreshed.accessToken;
+    await verifyInstagramToken(newToken);
 
     const refreshedAtIso = new Date().toISOString();
-    await writeInstagramTokenToEdgeConfig({
-      accessToken,
-      refreshedAtIso,
-    });
+    await writeAccessToken({ accessToken: newToken, refreshedAtIso });
 
-    const days =
-      typeof expiresInSeconds === "number"
-        ? Math.round(expiresInSeconds / 86400)
-        : "~60";
+    const expiresInDays =
+      refreshed.expiresInSeconds !== null
+        ? Math.round(refreshed.expiresInSeconds / 86400)
+        : null;
     console.log(
-      `[instagram-refresh] refreshed successfully; new token valid for ~${days} days`,
+      `[instagram-refresh] refreshed successfully; valid for ~${expiresInDays ?? 60} days`,
     );
-    return NextResponse.json({ ok: true, refreshedAtIso, expiresInDays: days });
+    return NextResponse.json({ ok: true, refreshedAtIso, expiresInDays });
   } catch (err) {
-    const detail = (err as Error).message;
+    // Meta echoes the token back in some error messages, and this text goes to
+    // a Discord channel — strip both the old and new values before sending.
+    const detail = redactTokens((err as Error).message, [
+      currentToken,
+      newToken,
+    ]);
     const msg =
-      `🔴 Instagram token refresh failed: ${detail}\n` +
-      "The site will keep showing the placeholder 'Data unavailable — check Instagram token.' " +
-      "until this is fixed. Rotate manually via /api/instagram/oauth if this keeps failing.";
+      `Instagram token refresh failed: ${detail}\n` +
+      "Stats will fall back to the last stored snapshot, then to the unavailable state once that ages out. " +
+      "Rotate manually via /api/instagram/oauth if this keeps failing.";
     console.warn(`[instagram-refresh] ${detail}`);
     await sendInstagramAlert(msg);
     return NextResponse.json({ ok: false, reason: detail }, { status: 500 });

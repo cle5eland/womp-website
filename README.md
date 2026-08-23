@@ -95,32 +95,44 @@ Follow Meta’s code → short-lived → long-lived steps in the same Business L
 
 You do **not** need to publish the app to Live for a single owned account while you are a developer/admin on the app; you still complete OAuth once to grant scopes.
 
-#### Token auto-refresh (prevents recurring expiry)
+#### Token auto-refresh + health monitoring
 
-Tokens expire after ~60 days. Instead of rotating `INSTAGRAM_ACCESS_TOKEN` by hand on a timer, a weekly Vercel Cron (`vercel.json` → `/api/cron/instagram-refresh`) refreshes it automatically:
+Tokens expire after ~60 days, and an **expired token cannot be refreshed** — there's no grace period, so recovery means re-running the OAuth flow by hand. Two crons (`vercel.json`) keep that from happening unattended:
+
+**Weekly refresh** → `/api/cron/instagram-refresh`
 
 1. Reads the current token (Edge Config, falling back to `INSTAGRAM_ACCESS_TOKEN`).
 2. Calls `GET https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=…` to mint a new ~60-day token.
-3. Verifies the new token actually works against `/me`.
-4. Writes it to Vercel Edge Config (`lib/instagram-token-refresh.ts`) so `lib/instagram-stats.ts` picks it up immediately — no redeploy needed, since a plain env var can't be updated at runtime.
-5. If any step fails, it posts a Discord alert (and returns a 5xx, so it also shows up in Vercel's own cron/function failure metrics) instead of failing silently.
+3. Verifies the new token works against `/me` *before* trusting it.
+4. Persists it via `lib/instagram-store.ts`, so `lib/instagram-stats.ts` picks it up with no redeploy — a plain env var can't be updated at runtime.
+
+**Daily health check** → `/api/cron/instagram-health`
+
+1. Exercises the live API (a token can die between refreshes — a password change or revoked grant kills it immediately).
+2. Stores the result as a last-known-good snapshot.
+3. Alerts if the refresh cron hasn't succeeded in over 10 days, i.e. it has stopped running.
+4. Pings `HEALTHCHECK_PING_URL` only on a fully clean run.
+
+This route rotates nothing, so it's also the safe way to ask "is the token alive right now?" by hand.
+
+Failures from either cron post to Discord *and* return a 5xx, so they show up in Vercel's cron failure metrics too. Because crons only run against the production deployment, a rollback or a dropped `vercel.json` would silently disable all of the above — that's what the external `HEALTHCHECK_PING_URL` dead-man's-switch is for.
+
+**Graceful degradation.** When the live call fails, the panel serves the stored snapshot labeled "As of <date>" instead of an empty state, so a token problem is invisible to visitors. Only once the snapshot passes 30 days old does it revert to `—` and "Data unavailable".
 
 One-time setup:
 
 1. Create an Edge Config store in the Vercel dashboard and connect it to this project (this auto-adds the `EDGE_CONFIG` connection string).
-2. Set these additional production env vars:
+2. Create a **project-scoped** Vercel API token so a leak can't reach anything else, and set it as `VERCEL_API_TOKEN`:
 
-   | Variable | Description |
-   | --- | --- |
-   | `EDGE_CONFIG_ID` | The store's id (`ecfg_...`), used by the cron to write via the Vercel REST API. |
-   | `VERCEL_API_TOKEN` | A Vercel API token scoped to this project, with write access to the Edge Config store. |
-   | `VERCEL_TEAM_ID` | Only needed if the project/Edge Config live under a team scope. |
-   | `CRON_SECRET` | Random secret; Vercel echoes it back as `Authorization: Bearer <value>` on cron requests so the endpoint can reject other callers. |
-   | `DISCORD_ALERT_WEBHOOK_URL` | Discord webhook (Server Settings → Integrations → Webhooks) that receives a message if the refresh ever fails. |
+   ```bash
+   vercel tokens add "womp instagram cron" --project prj_...
+   ```
 
-3. Complete the manual OAuth flow above once to seed `INSTAGRAM_ACCESS_TOKEN` — the cron takes over from there.
+3. Set the remaining production env vars: `EDGE_CONFIG_ID`, `CRON_SECRET` (required — the cron routes refuse to run without it rather than being publicly callable), `DISCORD_ALERT_WEBHOOK_URL`, and optionally `HEALTHCHECK_PING_URL`. See `.env.example` for descriptions.
+4. Complete the manual OAuth flow above once to seed `INSTAGRAM_ACCESS_TOKEN` — the crons take over from there.
+5. Verify before trusting the schedule: `vercel crons run /api/cron/instagram-health` (safe, read-only), then `vercel crons run /api/cron/instagram-refresh` for a real rotation. `vercel crons ls` shows what's registered.
 
-If the cron alerts that refresh is failing (e.g. the account's grant was revoked, or the token had already expired before this system was set up), fall back to the manual OAuth flow above. Until it's fixed, the Instagram tiles gracefully render `—` rather than breaking the page.
+If refresh starts failing (revoked grant, or a token that lapsed before this was set up), fall back to the manual OAuth flow above.
 
 **Secrets:** never commit app secrets or access tokens. If a secret is pasted into chat or committed, rotate it in the Meta dashboard immediately.
 

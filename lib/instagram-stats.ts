@@ -1,13 +1,12 @@
 import "server-only";
 
 import { unstable_cache } from "next/cache";
-import { get as getEdgeConfigValue } from "@vercel/edge-config";
 
 // Reuse the generic retry helper that lives in the SoundCloud namespace —
 // it isn't actually SoundCloud-specific, just where it first landed.
 import { fetchWithRetry } from "@/lib/soundcloud-http";
 import type { InstagramStats } from "@/lib/instagram-types";
-import { EDGE_CONFIG_TOKEN_KEY } from "@/lib/instagram-token-refresh";
+import { readAccessToken, readStatsSnapshot } from "@/lib/instagram-store";
 
 /**
  * Instagram Graph API (Instagram Login flow).
@@ -26,15 +25,16 @@ import { EDGE_CONFIG_TOKEN_KEY } from "@/lib/instagram-token-refresh";
  * store the user id separately.
  *
  * Token source + rotation: a weekly cron (`app/api/cron/instagram-refresh/route.ts`)
- * refreshes the long-lived token and writes it to Edge Config, since env vars
- * baked into a serverless function can't be updated at runtime without a
- * redeploy. We read from Edge Config first and fall back to the
- * `INSTAGRAM_ACCESS_TOKEN` env var (used for local dev, and as the initial
- * bootstrap value before the cron has ever run). See `lib/instagram-token-refresh.ts`
- * for the refresh logic and README for manual-rotation instructions if the
- * cron ever alerts that it's failing. When no valid token is available, the
- * fetcher returns `null` and the UI falls back to the placeholder state
- * without breaking the page.
+ * refreshes the long-lived token and stores it via `lib/instagram-store.ts`,
+ * with the `INSTAGRAM_ACCESS_TOKEN` env var as the bootstrap value and the
+ * only source in local dev. See README for manual rotation if the cron alerts
+ * that it's failing.
+ *
+ * Failure behavior: when the live call fails we fall back to the last good
+ * snapshot (written daily by the health cron) and mark it `isStale`, so a
+ * token problem shows slightly outdated follower counts instead of an empty
+ * panel. Only when there's no usable snapshot either do we return `null` and
+ * let the UI render its explicit unavailable state.
  */
 
 const API_BASE = "https://graph.instagram.com/v21.0";
@@ -72,32 +72,6 @@ type GraphErrorBody = {
   };
 };
 
-export function hasInstagramCredentials(): boolean {
-  return Boolean(process.env.EDGE_CONFIG || process.env.INSTAGRAM_ACCESS_TOKEN);
-}
-
-/**
- * Resolves the current access token, preferring the cron-maintained Edge
- * Config value over the static env var. Never throws — any Edge Config
- * failure just falls back to the env var (or `null`). Exported so the
- * refresh cron can find the token it needs to hand to
- * `refreshInstagramToken`.
- */
-export async function resolveInstagramAccessToken(): Promise<string | null> {
-  if (process.env.EDGE_CONFIG) {
-    try {
-      const token = await getEdgeConfigValue<string>(EDGE_CONFIG_TOKEN_KEY);
-      if (typeof token === "string" && token.length > 0) return token;
-    } catch (err) {
-      console.warn(
-        "[instagram] Edge Config read failed, falling back to env var:",
-        (err as Error).message,
-      );
-    }
-  }
-  return process.env.INSTAGRAM_ACCESS_TOKEN ?? null;
-}
-
 function asNumber(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
@@ -122,7 +96,7 @@ function formatFetchedAtLabel(date: Date): string {
 async function fetchInstagramInner(
   revalidateSeconds: number,
 ): Promise<InstagramStats | null> {
-  const token = await resolveInstagramAccessToken();
+  const token = await readAccessToken();
   if (!token) return null;
 
   const url = new URL(`${API_BASE}/me`);
@@ -212,18 +186,46 @@ export async function fetchInstagramStats(): Promise<InstagramStats | null> {
 }
 
 /**
- * Safe wrapper that never throws — returns `null` on hard failure. Mirrors
- * `getSpotifyArtistDataSafe` and `getSoundcloudStatsSafe` for symmetry at
- * the call site (`app/page.tsx`).
+ * Uncached live fetch, for the health cron — it needs to know whether the API
+ * works *right now*, which a cached `null` from an hour ago can't tell it.
+ */
+export async function fetchInstagramStatsLive(): Promise<InstagramStats | null> {
+  return fetchInstagramInner(0);
+}
+
+/**
+ * Snapshot reads are cached alongside the live fetch so a persistently broken
+ * token doesn't mean an Edge Config read on every single render.
+ */
+const cachedReadStatsSnapshot = unstable_cache(
+  async () => readStatsSnapshot(),
+  ["instagram-stats-snapshot"],
+  { revalidate: 3600, tags: ["instagram"] },
+);
+
+/**
+ * Safe wrapper that never throws. Mirrors `getSpotifyArtistDataSafe` and
+ * `getSoundcloudStatsSafe` for symmetry at the call site (`app/page.tsx`),
+ * with one addition: if the live call yields nothing, serve the last good
+ * snapshot (flagged `isStale`) rather than showing visitors an empty panel.
  */
 export async function getInstagramStatsSafe(): Promise<InstagramStats | null> {
+  let live: InstagramStats | null = null;
   try {
-    return await fetchInstagramStats();
+    live = await fetchInstagramStats();
   } catch (err) {
     console.warn(
       "[instagram] fetchInstagramStats failed:",
       (err as Error).message,
     );
-    return null;
   }
+  if (live) return live;
+
+  const snapshot = await cachedReadStatsSnapshot();
+  if (snapshot) {
+    console.warn(
+      `[instagram] serving stale snapshot from ${snapshot.fetchedAt} — live fetch unavailable`,
+    );
+  }
+  return snapshot;
 }
