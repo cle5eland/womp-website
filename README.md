@@ -91,11 +91,36 @@ Follow Meta’s code → short-lived → long-lived steps in the same Business L
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `INSTAGRAM_ACCESS_TOKEN` | Yes (for live panel) | Long-lived access token. Server-only. |
+| `INSTAGRAM_ACCESS_TOKEN` | Yes (for live panel) | Long-lived access token. Server-only. Bootstrap value only — see auto-refresh below for how it stays valid afterward. |
 
 You do **not** need to publish the app to Live for a single owned account while you are a developer/admin on the app; you still complete OAuth once to grant scopes.
 
-Token rotation: tokens expire after ~60 days. Rotate the env var before the window lapses (or wire up a cron that calls `GET https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=…` and pushes the new token back into the secret manager). When the token is missing or rejected, the Instagram tiles gracefully render `—` rather than breaking the page.
+#### Token auto-refresh (prevents recurring expiry)
+
+Tokens expire after ~60 days. Instead of rotating `INSTAGRAM_ACCESS_TOKEN` by hand on a timer, a weekly Vercel Cron (`vercel.json` → `/api/cron/instagram-refresh`) refreshes it automatically:
+
+1. Reads the current token (Edge Config, falling back to `INSTAGRAM_ACCESS_TOKEN`).
+2. Calls `GET https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=…` to mint a new ~60-day token.
+3. Verifies the new token actually works against `/me`.
+4. Writes it to Vercel Edge Config (`lib/instagram-token-refresh.ts`) so `lib/instagram-stats.ts` picks it up immediately — no redeploy needed, since a plain env var can't be updated at runtime.
+5. If any step fails, it posts a Discord alert (and returns a 5xx, so it also shows up in Vercel's own cron/function failure metrics) instead of failing silently.
+
+One-time setup:
+
+1. Create an Edge Config store in the Vercel dashboard and connect it to this project (this auto-adds the `EDGE_CONFIG` connection string).
+2. Set these additional production env vars:
+
+   | Variable | Description |
+   | --- | --- |
+   | `EDGE_CONFIG_ID` | The store's id (`ecfg_...`), used by the cron to write via the Vercel REST API. |
+   | `VERCEL_API_TOKEN` | A Vercel API token scoped to this project, with write access to the Edge Config store. |
+   | `VERCEL_TEAM_ID` | Only needed if the project/Edge Config live under a team scope. |
+   | `CRON_SECRET` | Random secret; Vercel echoes it back as `Authorization: Bearer <value>` on cron requests so the endpoint can reject other callers. |
+   | `DISCORD_ALERT_WEBHOOK_URL` | Discord webhook (Server Settings → Integrations → Webhooks) that receives a message if the refresh ever fails. |
+
+3. Complete the manual OAuth flow above once to seed `INSTAGRAM_ACCESS_TOKEN` — the cron takes over from there.
+
+If the cron alerts that refresh is failing (e.g. the account's grant was revoked, or the token had already expired before this system was set up), fall back to the manual OAuth flow above. Until it's fixed, the Instagram tiles gracefully render `—` rather than breaking the page.
 
 **Secrets:** never commit app secrets or access tokens. If a secret is pasted into chat or committed, rotate it in the Meta dashboard immediately.
 

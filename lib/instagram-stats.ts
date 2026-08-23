@@ -1,11 +1,13 @@
 import "server-only";
 
 import { unstable_cache } from "next/cache";
+import { get as getEdgeConfigValue } from "@vercel/edge-config";
 
 // Reuse the generic retry helper that lives in the SoundCloud namespace —
 // it isn't actually SoundCloud-specific, just where it first landed.
 import { fetchWithRetry } from "@/lib/soundcloud-http";
 import type { InstagramStats } from "@/lib/instagram-types";
+import { EDGE_CONFIG_TOKEN_KEY } from "@/lib/instagram-token-refresh";
 
 /**
  * Instagram Graph API (Instagram Login flow).
@@ -19,17 +21,20 @@ import type { InstagramStats } from "@/lib/instagram-types";
  * long-lived access token (60-day expiry, refreshable). The account must be
  * a Business or Creator account; personal accounts cannot read stats.
  *
- * We read the token from the `INSTAGRAM_ACCESS_TOKEN` env var only and call
- * `GET https://graph.instagram.com/v21.0/me` with `?access_token=<token>`.
+ * We call `GET https://graph.instagram.com/v21.0/me` with `?access_token=<token>`.
  * The endpoint resolves "me" from the token itself, so we don't need to
  * store the user id separately.
  *
- * Token rotation note: tokens expire after ~60 days. Refresh-on-the-fly is
- * unhelpful in a serverless environment because the refreshed token can't
- * be persisted back into the env var. Operators must rotate the env value
- * manually before the window lapses (or wire up a cron). When the token is
- * absent or rejected, the fetcher returns `null` and the UI falls back to
- * the placeholder state without breaking the page.
+ * Token source + rotation: a weekly cron (`app/api/cron/instagram-refresh/route.ts`)
+ * refreshes the long-lived token and writes it to Edge Config, since env vars
+ * baked into a serverless function can't be updated at runtime without a
+ * redeploy. We read from Edge Config first and fall back to the
+ * `INSTAGRAM_ACCESS_TOKEN` env var (used for local dev, and as the initial
+ * bootstrap value before the cron has ever run). See `lib/instagram-token-refresh.ts`
+ * for the refresh logic and README for manual-rotation instructions if the
+ * cron ever alerts that it's failing. When no valid token is available, the
+ * fetcher returns `null` and the UI falls back to the placeholder state
+ * without breaking the page.
  */
 
 const API_BASE = "https://graph.instagram.com/v21.0";
@@ -68,7 +73,29 @@ type GraphErrorBody = {
 };
 
 export function hasInstagramCredentials(): boolean {
-  return Boolean(process.env.INSTAGRAM_ACCESS_TOKEN);
+  return Boolean(process.env.EDGE_CONFIG || process.env.INSTAGRAM_ACCESS_TOKEN);
+}
+
+/**
+ * Resolves the current access token, preferring the cron-maintained Edge
+ * Config value over the static env var. Never throws — any Edge Config
+ * failure just falls back to the env var (or `null`). Exported so the
+ * refresh cron can find the token it needs to hand to
+ * `refreshInstagramToken`.
+ */
+export async function resolveInstagramAccessToken(): Promise<string | null> {
+  if (process.env.EDGE_CONFIG) {
+    try {
+      const token = await getEdgeConfigValue<string>(EDGE_CONFIG_TOKEN_KEY);
+      if (typeof token === "string" && token.length > 0) return token;
+    } catch (err) {
+      console.warn(
+        "[instagram] Edge Config read failed, falling back to env var:",
+        (err as Error).message,
+      );
+    }
+  }
+  return process.env.INSTAGRAM_ACCESS_TOKEN ?? null;
 }
 
 function asNumber(value: unknown): number {
@@ -95,7 +122,7 @@ function formatFetchedAtLabel(date: Date): string {
 async function fetchInstagramInner(
   revalidateSeconds: number,
 ): Promise<InstagramStats | null> {
-  const token = process.env.INSTAGRAM_ACCESS_TOKEN;
+  const token = await resolveInstagramAccessToken();
   if (!token) return null;
 
   const url = new URL(`${API_BASE}/me`);
