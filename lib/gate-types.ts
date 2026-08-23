@@ -185,6 +185,25 @@ export const GATE_ACTION_LABELS: Record<
 export const MIN_COMMENT_LENGTH = 3;
 export const MAX_COMMENT_LENGTH = 1000;
 
+/** Slugs are hand-set by the admin and form the public `/gate/<slug>` URL. */
+export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const MAX_SLUG_LENGTH = 64;
+
+/** Best-effort tidy-up of admin input; the caller still validates the result. */
+export function normalizeSlug(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, MAX_SLUG_LENGTH)
+    .replace(/-+$/g, "");
+}
+
+export function isValidSlug(slug: string): boolean {
+  return slug.length > 0 && slug.length <= MAX_SLUG_LENGTH && SLUG_PATTERN.test(slug);
+}
+
 /** Returns the actions this gate requires, in display order. */
 export function requiredActions(
   requirements: GateRequirements,

@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "optimize-assets": "node scripts/optimize-public-assets.mjs"
+    "optimize-assets": "node scripts/optimize-public-assets.mjs",
+    "db:migrate": "node scripts/db-migrate.mjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",
