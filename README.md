@@ -121,7 +121,7 @@ Failures from either cron post to Discord *and* return a 5xx, so they show up in
 
 One-time setup:
 
-1. Create an Edge Config store in the Vercel dashboard and connect it to this project (this auto-adds the `EDGE_CONFIG` connection string).
+1. Create a Global Config store in the Vercel dashboard and connect it to this project (Storage tab -> Connect Store). This auto-adds a connection string env var (`GLOBAL_CONFIG` or `EDGE_CONFIG` depending on when you connect it — the SDK checks both).
 2. Create a **project-scoped** Vercel API token so a leak can't reach anything else, and set it as `VERCEL_API_TOKEN`:
 
    ```bash
