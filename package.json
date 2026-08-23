@@ -10,7 +10,7 @@
     "optimize-assets": "node scripts/optimize-public-assets.mjs"
   },
   "dependencies": {
-    "@vercel/edge-config": "^1.5.1",
+    "@vercel/global-config": "^1.5.1",
     "framer-motion": "^12.38.0",
     "next": "^16.2.6",
     "react": "^19.2.6",
