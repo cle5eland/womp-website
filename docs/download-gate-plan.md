@@ -1,6 +1,7 @@
 # SoundCloud Download Gate — Design Plan (Iteration 1)
 
-Status: **proposal, awaiting decisions** (see [Open questions](#open-questions))
+Status: **implemented** — see [Decisions](#decisions) for the choices this build
+reflects and [Still open](#still-open) for what is deliberately not done yet.
 
 A download gate is a public page for one song. A fan lands on it, connects their
 SoundCloud account, likes / reposts / comments on the track, and in exchange gets
@@ -309,42 +310,37 @@ mechanical once those land.
 
 ---
 
-## Open questions
+## Decisions
 
-**Blocking — I need these to build the right thing:**
+| Question | Decision |
+| --- | --- |
+| Comment requirement | **Required, fan-authored.** The textarea is never pre-filled, the server rejects anything under 3 characters, and gate creation refuses to require a comment on a track that has comments disabled. This is option (b) from §2(b) — see the caveat below. |
+| Follow the artist | **Included** as a fourth action, targeting the track's uploader. |
+| Email capture | **First name + email required**, collected as the final step before the download unlocks, with an optional marketing-consent checkbox recorded as a timestamp. |
+| Database | **Any Postgres via `DATABASE_URL`.** Neon and Supabase both work unchanged; nothing in the code is vendor-specific. |
+| File delivery | **Both.** Browser-to-Blob upload from the admin UI, or an artist-hosted URL. Blob-backed files stream through an authorizing route so the storage URL is never handed out. |
+| URL shape | `/gate/<slug>`, slug hand-set per gate. |
+| Admin auth | **Password**, but account-shaped: credentials live in `gate_admins` and gates carry `owner_id`, so a second collaborator is an insert rather than a migration. |
+| Multiple gates | **Full admin CRUD** at `/admin/gates`. |
 
-1. **Comment requirement.** Per §2(b), a *required* comment is the one piece that
-   conflicts with the API terms. Do you want it (a) optional and non-blocking
-   (my recommendation), (b) required but fan-authored, or (c) required and
-   pre-filled? I will implement the flag either way; this sets the default and
-   whether (c) exists.
-2. **Artist Pro + credentials.** Is the SoundCloud account on Artist Pro, and do
-   you already have a `client_id` / `client_secret`? `SOUNDCLOUD_CLIENT_ID` and
-   `SOUNDCLOUD_CLIENT_SECRET` are in `.env.example` but I cannot tell whether
-   they are populated in Vercel. If an app already exists, what is its currently
-   registered redirect URI?
-3. **Database.** Neon Postgres via the Vercel Marketplace (my recommendation), or
-   Supabase, given the placeholders already in `.env.example`? If you have a
-   preference or an existing project, say which and I will wire it up.
-4. **The download itself.** Do you want to upload files to Vercel Blob through
-   the admin UI, or just paste an external URL (Dropbox, Google Drive, your own
-   CDN)? Paste-a-URL is meaningfully less work for iteration 1.
+On the required comment: this is the one choice that sits against the letter of
+§2(b), since the terms' comment carve-out asks for comments "not made in
+response to any encouragement or incentive". Requiring fan-authored text is the
+safer of the two ways to do it, and the code deliberately makes the unsafe
+version impossible — there is no field for templated comment text anywhere in
+the schema or the API. Flipping `require_comment` to false per gate is a
+checkbox in the admin UI if the position ever needs to change.
 
-**Shape-affecting, with a sensible default if you have no preference:**
+## Still open
 
-5. **Email capture.** Hypeddit gates usually collect an email as well. Not in
-   your requirements, so I have left it out — but it is much cheaper to build in
-   now than to retrofit, and it is the main reason artists run gates at all.
-   Want it? Optional field, or required?
-6. **Follow-the-artist step.** `PUT /me/followings/{urn}` is a few lines given
-   everything else, and it has no comment-style incentive clause against it.
-   Include as a fourth toggle?
-7. **URL shape.** `/gate/<slug>`, or something shorter like `/d/<slug>`? Slug
-   auto-derived from the track title, or hand-set per gate?
-8. **Admin auth.** Shared `GATE_ADMIN_PASSWORD`, or SoundCloud OAuth restricted
-   to your own user URN (no shared secret, reuses the flow we are already
-   building)?
-9. **Multiple gates.** The model above supports many gates. Confirm you want the
-   admin CRUD in iteration 1 rather than a single gate configured in code —
-   that is a meaningful chunk of the work (phase 5) and the easiest thing to
-   defer if you want the fan-facing flow sooner.
+- **The one redirect URI.** Production and localhost cannot share it.
+  `GATE_MOCK_SOUNDCLOUD=true` covers local development by stubbing SoundCloud
+  entirely; a second credential set from SoundCloud support would be needed to
+  exercise the real flow anywhere but production.
+- **Blob uploads are untested end to end.** The code path is written but there
+  was no `BLOB_READ_WRITE_TOKEN` available to run it against. The external-URL
+  path is fully tested.
+- **Email delivery.** Addresses are captured and exportable as CSV, but nothing
+  sends mail. Wiring the list to a provider is a separate piece of work.
+- **`PRIVACY_CONTACT_EMAIL`** is unset, so `/privacy` currently points people at
+  the homepage links for deletion requests.

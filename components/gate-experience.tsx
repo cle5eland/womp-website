@@ -127,6 +127,7 @@ export function GateExperience({
       ) : null}
 
       <TrackHeader gate={gate} />
+      <TrackPlayer trackId={gate.trackId} trackTitle={gate.trackTitle} />
 
       <section className="mt-10">
         <p className="text-[10px] font-medium uppercase tracking-[0.4em] text-zinc-500">
@@ -243,6 +244,50 @@ function TrackHeader({ gate }: { gate: GateViewState["gate"] }) {
           Open on SoundCloud
         </a>
       </div>
+    </div>
+  );
+}
+
+/**
+ * SoundCloud's own embed player. Using their widget rather than streaming the
+ * audio ourselves is both the simplest option and the compliant one — their API
+ * terms forbid apps that persist or re-serve SoundCloud audio, and the widget
+ * carries the attribution and play counts back to the artist.
+ */
+function TrackPlayer({
+  trackId,
+  trackTitle,
+}: {
+  trackId: number;
+  trackTitle: string;
+}) {
+  if (!trackId) return null;
+
+  const params = new URLSearchParams({
+    url: `https://api.soundcloud.com/tracks/${trackId}`,
+    color: "#9516c4",
+    auto_play: "false",
+    hide_related: "true",
+    show_comments: "false",
+    show_user: "true",
+    show_reposts: "false",
+    show_teaser: "false",
+    visual: "false",
+  });
+
+  return (
+    <div className="mt-6 border border-white/[0.09] bg-black/40">
+      <iframe
+        title={`${trackTitle} on SoundCloud`}
+        src={`https://w.soundcloud.com/player/?${params.toString()}`}
+        width="100%"
+        height={120}
+        frameBorder="0"
+        scrolling="no"
+        allow="autoplay"
+        loading="lazy"
+        className="block"
+      />
     </div>
   );
 }
@@ -604,7 +649,7 @@ function DownloadPanel({
 
 function Attribution({ gate }: { gate: GateViewState["gate"] }) {
   return (
-    <footer className="mt-auto pt-12 text-[10px] leading-relaxed text-zinc-600">
+    <footer className="mt-16 border-t border-white/[0.07] pt-6 text-[10px] leading-relaxed text-zinc-600">
       <p>
         <a
           href={gate.trackPermalinkUrl}
