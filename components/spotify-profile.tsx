@@ -5,6 +5,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 
 import { SpotifyIframePlayer } from "@/components/spotify-iframe-player";
+import { profileHighlightImage } from "@/lib/epk-data";
 import { formatCompactStat } from "@/lib/format-compact-stat";
 import type { SpotifyArtistData } from "@/lib/spotify";
 
@@ -97,7 +98,7 @@ export function SpotifyProfile({
 
   const { artist, topTracks } = data;
   const tracks = topTracks.slice(0, maxTracks);
-  const headerImage = artist.image?.url ?? null;
+  const headerImage = profileHighlightImage;
   const initialArtistUri = artistUri ?? `spotify:artist:${artist.id}`;
 
   const handleTrackClick = (
