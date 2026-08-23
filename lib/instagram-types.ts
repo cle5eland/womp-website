@@ -23,6 +23,11 @@ export type InstagramStats = {
   fetchedAt: string;
   /** Pre-formatted UTC label safe to render in SSR + hydration. */
   fetchedAtLabel: string;
+  /**
+   * Set when these numbers came from the stored snapshot rather than a live
+   * call, so the UI can say so instead of implying they're current.
+   */
+  isStale?: boolean;
 };
 
 /**

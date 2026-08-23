@@ -6,6 +6,7 @@ import { unstable_cache } from "next/cache";
 // it isn't actually SoundCloud-specific, just where it first landed.
 import { fetchWithRetry } from "@/lib/soundcloud-http";
 import type { InstagramStats } from "@/lib/instagram-types";
+import { readAccessToken, readStatsSnapshot } from "@/lib/instagram-store";
 
 /**
  * Instagram Graph API (Instagram Login flow).
@@ -19,17 +20,21 @@ import type { InstagramStats } from "@/lib/instagram-types";
  * long-lived access token (60-day expiry, refreshable). The account must be
  * a Business or Creator account; personal accounts cannot read stats.
  *
- * We read the token from the `INSTAGRAM_ACCESS_TOKEN` env var only and call
- * `GET https://graph.instagram.com/v21.0/me` with `?access_token=<token>`.
+ * We call `GET https://graph.instagram.com/v21.0/me` with `?access_token=<token>`.
  * The endpoint resolves "me" from the token itself, so we don't need to
  * store the user id separately.
  *
- * Token rotation note: tokens expire after ~60 days. Refresh-on-the-fly is
- * unhelpful in a serverless environment because the refreshed token can't
- * be persisted back into the env var. Operators must rotate the env value
- * manually before the window lapses (or wire up a cron). When the token is
- * absent or rejected, the fetcher returns `null` and the UI falls back to
- * the placeholder state without breaking the page.
+ * Token source + rotation: a weekly cron (`app/api/cron/instagram-refresh/route.ts`)
+ * refreshes the long-lived token and stores it via `lib/instagram-store.ts`,
+ * with the `INSTAGRAM_ACCESS_TOKEN` env var as the bootstrap value and the
+ * only source in local dev. See README for manual rotation if the cron alerts
+ * that it's failing.
+ *
+ * Failure behavior: when the live call fails we fall back to the last good
+ * snapshot (written daily by the health cron) and mark it `isStale`, so a
+ * token problem shows slightly outdated follower counts instead of an empty
+ * panel. Only when there's no usable snapshot either do we return `null` and
+ * let the UI render its explicit unavailable state.
  */
 
 const API_BASE = "https://graph.instagram.com/v21.0";
@@ -67,10 +72,6 @@ type GraphErrorBody = {
   };
 };
 
-export function hasInstagramCredentials(): boolean {
-  return Boolean(process.env.INSTAGRAM_ACCESS_TOKEN);
-}
-
 function asNumber(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
@@ -95,7 +96,7 @@ function formatFetchedAtLabel(date: Date): string {
 async function fetchInstagramInner(
   revalidateSeconds: number,
 ): Promise<InstagramStats | null> {
-  const token = process.env.INSTAGRAM_ACCESS_TOKEN;
+  const token = await readAccessToken();
   if (!token) return null;
 
   const url = new URL(`${API_BASE}/me`);
@@ -185,18 +186,46 @@ export async function fetchInstagramStats(): Promise<InstagramStats | null> {
 }
 
 /**
- * Safe wrapper that never throws — returns `null` on hard failure. Mirrors
- * `getSpotifyArtistDataSafe` and `getSoundcloudStatsSafe` for symmetry at
- * the call site (`app/page.tsx`).
+ * Uncached live fetch, for the health cron — it needs to know whether the API
+ * works *right now*, which a cached `null` from an hour ago can't tell it.
+ */
+export async function fetchInstagramStatsLive(): Promise<InstagramStats | null> {
+  return fetchInstagramInner(0);
+}
+
+/**
+ * Snapshot reads are cached alongside the live fetch so a persistently broken
+ * token doesn't mean an Edge Config read on every single render.
+ */
+const cachedReadStatsSnapshot = unstable_cache(
+  async () => readStatsSnapshot(),
+  ["instagram-stats-snapshot"],
+  { revalidate: 3600, tags: ["instagram"] },
+);
+
+/**
+ * Safe wrapper that never throws. Mirrors `getSpotifyArtistDataSafe` and
+ * `getSoundcloudStatsSafe` for symmetry at the call site (`app/page.tsx`),
+ * with one addition: if the live call yields nothing, serve the last good
+ * snapshot (flagged `isStale`) rather than showing visitors an empty panel.
  */
 export async function getInstagramStatsSafe(): Promise<InstagramStats | null> {
+  let live: InstagramStats | null = null;
   try {
-    return await fetchInstagramStats();
+    live = await fetchInstagramStats();
   } catch (err) {
     console.warn(
       "[instagram] fetchInstagramStats failed:",
       (err as Error).message,
     );
-    return null;
   }
+  if (live) return live;
+
+  const snapshot = await cachedReadStatsSnapshot();
+  if (snapshot) {
+    console.warn(
+      `[instagram] serving stale snapshot from ${snapshot.fetchedAt} — live fetch unavailable`,
+    );
+  }
+  return snapshot;
 }

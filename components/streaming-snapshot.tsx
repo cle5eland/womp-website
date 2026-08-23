@@ -85,6 +85,8 @@ type Props = {
   instagram: {
     data: InstagramStatsBundle | null;
     artistUrl?: string;
+    /** Set only when the numbers came from a stored snapshot, not a live call. */
+    asOfLabel?: string;
   };
 };
 
@@ -246,6 +248,10 @@ export function StreamingSnapshot({
                 {!igLive ? (
                   <p className="shrink-0 text-[9px] uppercase tracking-[0.2em] text-zinc-500">
                     Data unavailable — check Instagram token.
+                  </p>
+                ) : ig.asOfLabel ? (
+                  <p className="shrink-0 text-[9px] uppercase tracking-[0.2em] text-zinc-500">
+                    As of {ig.asOfLabel}
                   </p>
                 ) : null}
               </div>
