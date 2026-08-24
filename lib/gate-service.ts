@@ -35,7 +35,8 @@ import { type FanSession, isMockMode } from "@/lib/soundcloud-user-auth";
  * a download is authorized.
  *
  * Identity is email (the claim cookie). SoundCloud's session is only required
- * for SoundCloud writes. Spotify steps are honor-system attestations.
+ * for SoundCloud writes. Spotify and Instagram steps are honor-system
+ * attestations.
  */
 
 export type ServiceFailure = {
@@ -98,9 +99,9 @@ export type ApplyActionSuccess = {
 /**
  * Perform one action and record it.
  *
- * SoundCloud kinds still hit the API with the fan token. Spotify kinds are an
- * attestation: the fan opened Spotify and says they followed. We check
- * "already done" before any write so a double-clicked comment is safe.
+ * SoundCloud kinds still hit the API with the fan token. Spotify / Instagram
+ * kinds are attestations: the fan opened the platform and says they followed.
+ * We check "already done" before any write so a double-clicked comment is safe.
  */
 export async function applyAction(
   input: ApplyActionInput,
@@ -142,7 +143,7 @@ export async function applyAction(
     return finish(gate, unlock);
   }
 
-  if (actionProvider(action) === "spotify") {
+  if (actionProvider(action) !== "soundcloud") {
     const updated = await markAction(unlock.id, action);
     return finish(gate, updated ?? unlock);
   }
@@ -215,7 +216,7 @@ export async function applyAction(
   let result: Awaited<ReturnType<typeof performAction>>;
   try {
     result = await performAction({
-      action: action as Exclude<GateActionKind, "spotify_follow">,
+      action: action as "like" | "repost" | "comment" | "follow",
       accessToken: session.accessToken,
       track: { trackUrn: gate.trackUrn, trackId: gate.trackId },
       artist: { artistUserUrn: gate.artistUserUrn },

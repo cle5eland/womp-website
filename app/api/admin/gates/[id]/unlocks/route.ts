@@ -37,6 +37,7 @@ export async function GET(
     "commented_at",
     "followed_at",
     "spotify_followed_at",
+    "instagram_followed_at",
     "unlocked_at",
     "download_count",
   ];
@@ -54,6 +55,7 @@ export async function GET(
         row.progress.comment ?? "",
         row.progress.follow ?? "",
         row.progress.spotifyFollow ?? "",
+        row.progress.instagramFollow ?? "",
         row.progress.unlockedAt ?? "",
         String(row.downloadCount),
       ]

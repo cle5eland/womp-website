@@ -28,6 +28,7 @@ export type AdminGateView = {
   deliveryFilename: string | null;
   deliverySizeBytes: number | null;
   spotifyArtistUrl: string;
+  instagramHandle: string;
 };
 
 export type AdminUnlockRow = {
@@ -59,6 +60,7 @@ export function AdminGateEditor({
   const [requirements, setRequirements] = useState(gate.requirements);
   const [externalUrl, setExternalUrl] = useState(gate.deliveryExternalUrl ?? "");
   const [spotifyArtistUrl, setSpotifyArtistUrl] = useState(gate.spotifyArtistUrl);
+  const [instagramHandle, setInstagramHandle] = useState(gate.instagramHandle);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -94,7 +96,12 @@ export function AdminGateEditor({
   async function saveDetails(event: React.FormEvent) {
     event.preventDefault();
     const nextTitle = title.trim() || gate.trackTitle;
-    if (await patch({ title: nextTitle, requirements, spotifyArtistUrl }, "details")) {
+    if (
+      await patch(
+        { title: nextTitle, requirements, spotifyArtistUrl, instagramHandle },
+        "details",
+      )
+    ) {
       setTitle(nextTitle);
       setNotice("Saved.");
     }
@@ -261,6 +268,22 @@ export function AdminGateEditor({
               <span className="mt-1.5 block text-[10px] text-zinc-600">
                 Leave blank to use WOMP. Paste a different artist for a collab
                 or side project.
+              </span>
+            </label>
+          ) : null}
+          {requirements.instagram_follow ? (
+            <label className="block">
+              <span className={labelClass}>Instagram handle</span>
+              <input
+                type="text"
+                value={instagramHandle}
+                onChange={(event) => setInstagramHandle(event.target.value)}
+                placeholder="@wompbass (blank = site default)"
+                autoComplete="off"
+                className={inputClass}
+              />
+              <span className="mt-1.5 block text-[10px] text-zinc-600">
+                Leave blank to use @wompbass. Paste a handle or profile URL.
               </span>
             </label>
           ) : null}

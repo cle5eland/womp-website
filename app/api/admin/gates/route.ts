@@ -10,6 +10,7 @@ import {
   normalizeSlug,
 } from "@/lib/gate-types";
 import { resolveTrackByUrl } from "@/lib/soundcloud-actions";
+import { parseInstagramHandle } from "@/lib/instagram-gate";
 import { resolveAdminSpotifyArtist } from "@/lib/spotify";
 
 /**
@@ -35,6 +36,7 @@ export async function POST(request: Request) {
     title?: unknown;
     requirements?: unknown;
     spotifyArtistUrl?: unknown;
+    instagramHandle?: unknown;
   };
   try {
     payload = await request.json();
@@ -105,6 +107,17 @@ export async function POST(request: Request) {
     }
   }
 
+  let instagramHandle: string | null = null;
+  if (typeof payload.instagramHandle === "string") {
+    const parsed = parseInstagramHandle(payload.instagramHandle);
+    if ("error" in parsed) {
+      return NextResponse.json({ error: parsed.error }, { status: 422 });
+    }
+    if ("handle" in parsed) {
+      instagramHandle = parsed.handle;
+    }
+  }
+
   const gate = await createGate({
     ownerId: admin.id,
     slug,
@@ -121,12 +134,13 @@ export async function POST(request: Request) {
     requirements,
     spotifyArtistId,
     spotifyArtistName,
+    instagramHandle,
   });
 
   return NextResponse.json({ ok: true, id: gate.id, slug: gate.slug });
 }
 
-/** SoundCloud steps default on; Spotify steps default off. */
+/** SoundCloud + Instagram default on; Spotify steps default off. */
 export function parseRequirements(value: unknown): GateRequirements {
   const source = (value ?? {}) as Record<string, unknown>;
   const requirements = { ...DEFAULT_GATE_REQUIREMENTS };

@@ -13,6 +13,7 @@ import {
   type GateStatus,
 } from "@/lib/gate-types";
 import { resolveAdminSpotifyArtist } from "@/lib/spotify";
+import { parseInstagramHandle } from "@/lib/instagram-gate";
 
 const STATUSES: GateStatus[] = ["draft", "published", "archived"];
 
@@ -83,6 +84,20 @@ export async function PATCH(
       patch.spotifyArtistId = spotify.id;
       patch.spotifyArtistName = spotify.name;
     }
+  }
+
+  if (payload.instagramHandle !== undefined) {
+    if (typeof payload.instagramHandle !== "string") {
+      return NextResponse.json(
+        { error: "Instagram handle must be a string." },
+        { status: 400 },
+      );
+    }
+    const parsed = parseInstagramHandle(payload.instagramHandle);
+    if ("error" in parsed) {
+      return NextResponse.json({ error: parsed.error }, { status: 422 });
+    }
+    patch.instagramHandle = "handle" in parsed ? parsed.handle : null;
   }
 
   // Delivery: either a Blob upload the client just completed, or an
