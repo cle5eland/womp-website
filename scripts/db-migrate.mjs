@@ -19,7 +19,7 @@ import postgres from "postgres";
 import {
   describeTarget,
   loadEnvLocal,
-  requireDatabaseUrl,
+  requireMigrationUrl,
 } from "./db-url.mjs";
 
 const MIGRATIONS_DIR = join(
@@ -31,8 +31,10 @@ const MIGRATIONS_DIR = join(
 
 async function main() {
   await loadEnvLocal();
-  const url = requireDatabaseUrl();
-  console.log(`Migrating ${describeTarget(url)}\n`);
+  const { url, unpooled } = requireMigrationUrl();
+  console.log(
+    `Migrating ${describeTarget(url)}${unpooled ? " (direct connection)" : ""}\n`,
+  );
 
   const sql = postgres(url, { prepare: false, max: 1, onnotice: () => {} });
 

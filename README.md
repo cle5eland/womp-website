@@ -57,14 +57,14 @@ Design notes and the reasoning behind the constraints live in [`docs/download-ga
 
 ### Setup
 
-1. **Database.** Any Postgres works; **Neon via the Vercel Marketplace** is the recommended option (Vercel → Storage → Create → Neon). Copy the **pooled** connection string — the host contains `-pooler` — into `DATABASE_URL`, then apply the schema:
+1. **Database.** Any Postgres works; **Neon via the Vercel Marketplace** is the recommended option (Vercel → Storage → Create → Neon). Its integration injects `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct) automatically, which is exactly what this code reads — so production needs no manual variable. Locally, `vercel env pull .env.local`, or paste the **pooled** string (its host contains `-pooler`) into `DATABASE_URL` by hand. Then apply the schema:
 
 ```bash
 npm run db:migrate
 npm run db:check   # verifies connection, schema, role permissions, and env vars
 ```
 
-Use the pooled endpoint, not the direct one: serverless functions open a connection per instance and will exhaust a direct connection limit under load. `npm run db:check` warns if it spots a direct string.
+The app must use the pooled endpoint: serverless functions open a connection per instance and will exhaust a direct connection limit under load. `npm run db:check` warns if it spots a direct string. Migrations are the opposite case — DDL and multi-statement transactions are what a transaction-mode pooler handles worst — so `db:migrate` prefers `DATABASE_URL_UNPOOLED` when it exists and falls back to `DATABASE_URL`.
 
 You can paste a provider's connection string verbatim. Neon appends `channel_binding=require` and Supabase's pooled string appends `pgbouncer=true`; both are client-side libpq parameters that `postgres.js` would otherwise forward to the server, which rejects them with a confusing `unrecognized configuration parameter`. `sanitizeConnectionString` in `lib/db.ts` strips them.
 

@@ -77,6 +77,23 @@ export function requireDatabaseUrl() {
   return sanitizeConnectionString(url);
 }
 
+/**
+ * Connection string for schema changes, preferring a direct (unpooled)
+ * endpoint when one is available.
+ *
+ * Neon's Vercel integration injects `DATABASE_URL_UNPOOLED` alongside the
+ * pooled `DATABASE_URL` for exactly this purpose: DDL and multi-statement
+ * transactions are the workloads a transaction-mode pooler handles worst.
+ * Falls back to `DATABASE_URL`, which is correct everywhere else.
+ */
+export function requireMigrationUrl() {
+  const unpooled = process.env.DATABASE_URL_UNPOOLED;
+  if (unpooled) {
+    return { url: sanitizeConnectionString(unpooled), unpooled: true };
+  }
+  return { url: requireDatabaseUrl(), unpooled: false };
+}
+
 /** Hides credentials so a connection target can be printed safely. */
 export function describeTarget(url) {
   try {

@@ -317,7 +317,7 @@ mechanical once those land.
 | Comment requirement | **Required, fan-authored.** The textarea is never pre-filled, the server rejects anything under 3 characters, and gate creation refuses to require a comment on a track that has comments disabled. This is option (b) from §2(b) — see the caveat below. |
 | Follow the artist | **Included** as a fourth action, targeting the track's uploader. |
 | Email capture | **First name + email required**, collected as the final step before the download unlocks, with an optional marketing-consent checkbox recorded as a timestamp. |
-| Database | **Any Postgres via `DATABASE_URL`.** Neon and Supabase both work unchanged; nothing in the code is vendor-specific. |
+| Database | **Neon via the Vercel Marketplace.** The app stays vendor-neutral (`DATABASE_URL` / `DATABASE_URL_UNPOOLED`); Neon is the host we recommend. See [Database choice](#database-choice). |
 | File delivery | **Both.** Browser-to-Blob upload from the admin UI, or an artist-hosted URL. Blob-backed files stream through an authorizing route so the storage URL is never handed out. |
 | URL shape | `/gate/<slug>`, slug hand-set per gate. |
 | Admin auth | **Password**, but account-shaped: credentials live in `gate_admins` and gates carry `owner_id`, so a second collaborator is an insert rather than a migration. |
@@ -330,6 +330,40 @@ safer of the two ways to do it, and the code deliberately makes the unsafe
 version impossible — there is no field for templated comment text anywhere in
 the schema or the API. Flipping `require_comment` to false per gate is a
 checkbox in the admin UI if the position ever needs to change.
+
+## Database choice
+
+There is no "Vercel Postgres" product anymore. Vercel Marketplace hosts Neon,
+Supabase, Prisma Postgres, and AWS Aurora. The app talks vanilla Postgres, so
+any of them work. The recommendation is **Neon via Vercel → Storage → Create
+→ Neon**, for reasons that are about this site rather than about Neon in
+general.
+
+This is a marketing site with bursty traffic: a gate is quiet for days, then
+busy for an hour after a drop. Neon is built for that — compute suspends after
+about five minutes idle and wakes in a few hundred milliseconds. The first
+request after a quiet spell is slightly slow; nothing else is. The free tier
+never pauses the project permanently.
+
+Supabase's free tier *does* pause after seven days of inactivity, and a paused
+project stays down until someone logs into the dashboard and unpauses it. That
+is a real failure mode for a site whose traffic is a drop followed by silence.
+Supabase is the better product if we later want its auth, realtime, or storage
+bundled in; we already have admin auth, we already have Blob for files, and we
+have no realtime. Paying $25/month to avoid the pause, for features we do not
+use, is the wrong trade.
+
+Prisma Postgres bills by query and never sleeps, which is nicer for first-hit
+latency, but it is a newer product with a smaller marketplace footprint and
+would pull Prisma into a codebase that currently has none. Aurora is overkill.
+
+Neon also injects exactly the variables the code already reads
+(`DATABASE_URL` pooled, `DATABASE_URL_UNPOOLED` direct), so production needs
+no hand-copied secret. `db:migrate` prefers the unpooled URL; the app uses the
+pooled one.
+
+Provisioning still has to happen in the Vercel dashboard — this environment
+cannot create the store.
 
 ## Still open
 
@@ -344,3 +378,6 @@ checkbox in the admin UI if the position ever needs to change.
   sends mail. Wiring the list to a provider is a separate piece of work.
 - **`PRIVACY_CONTACT_EMAIL`** is unset, so `/privacy` currently points people at
   the homepage links for deletion requests.
+- **The production database is not provisioned yet.** Create a Neon store from
+  the Vercel project's Storage tab; the integration injects `DATABASE_URL`.
+  Then run `npm run db:migrate` and `npm run db:check`.
