@@ -1,6 +1,11 @@
 import "server-only";
 
-import { fetchWithRetry } from "@/lib/soundcloud-http";
+import {
+  fetchWithRetry,
+  logSoundcloud,
+  readSoundcloudErrorBody,
+  soundcloudResponseMeta,
+} from "@/lib/soundcloud-http";
 
 /**
  * OAuth 2.1 / Client Credentials helper for the SoundCloud API.
@@ -91,10 +96,25 @@ async function postToken(params: URLSearchParams): Promise<TokenState> {
     { maxRetries: 2, baseDelayMs: 750 },
   );
   if (!res.ok) {
+    const { message, body } = await readSoundcloudErrorBody(res);
+    logSoundcloud("error", "token-request-failed", {
+      method: "POST",
+      path: "/oauth/token",
+      grantType: params.get("grant_type"),
+      message,
+      body,
+      ...soundcloudResponseMeta(res),
+    });
     throw new Error(`token-request-failed:${res.status}`);
   }
   const json = (await res.json()) as TokenResponse;
   if (!json.access_token || typeof json.expires_in !== "number") {
+    logSoundcloud("error", "token-response-malformed", {
+      method: "POST",
+      path: "/oauth/token",
+      grantType: params.get("grant_type"),
+      keys: Object.keys(json),
+    });
     throw new Error("token-response-malformed");
   }
   // Subtract a small skew so we don't sit right on the cliff edge.
@@ -167,8 +187,10 @@ export async function getSoundcloudAccessToken(): Promise<string | null> {
           const refreshed = await refreshGrant(previousRefreshToken);
           cached = refreshed;
           return refreshed;
-        } catch {
-          // Fall through to a fresh client_credentials grant.
+        } catch (err) {
+          logSoundcloud("warn", "refresh-token-failed, falling back to client credentials", {
+            message: (err as Error).message,
+          });
         }
       }
       const fresh = await newClientCredentialsGrant();
@@ -182,7 +204,10 @@ export async function getSoundcloudAccessToken(): Promise<string | null> {
   try {
     const state = await inflight;
     return state.accessToken;
-  } catch {
+  } catch (err) {
+    logSoundcloud("error", "access-token-unavailable", {
+      message: (err as Error).message,
+    });
     return null;
   }
 }

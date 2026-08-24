@@ -7,7 +7,13 @@ import {
   hasSoundcloudCredentials,
   invalidateSoundcloudAccessToken,
 } from "@/lib/soundcloud-auth";
-import { fetchWithRetry } from "@/lib/soundcloud-http";
+import {
+  fetchWithRetry,
+  logSoundcloud,
+  readSoundcloudErrorBody,
+  soundcloudPathOf,
+  soundcloudResponseMeta,
+} from "@/lib/soundcloud-http";
 import type {
   SoundcloudStats,
   SoundcloudTrack,
@@ -215,7 +221,17 @@ async function fetchAllTracksViaApi(
 
   for (let page = 0; page < pageLimit && next; page++) {
     const res = await apiFetch(next, accessToken, revalidateSeconds);
-    if (!res.ok) break;
+    if (!res.ok) {
+      const { message, body } = await readSoundcloudErrorBody(res);
+      logSoundcloud(res.status >= 500 ? "error" : "warn", "tracks list failed", {
+        method: "GET",
+        path: soundcloudPathOf(next.startsWith("http") ? next : `${API_BASE}${next}`),
+        message,
+        body,
+        ...soundcloudResponseMeta(res),
+      });
+      break;
+    }
     const json: { collection?: RawTrack[]; next_href?: string | null } =
       await res.json();
     if (Array.isArray(json.collection)) out.push(...json.collection);
@@ -252,7 +268,22 @@ async function fetchViaApi(
       revalidateSeconds,
     );
   }
-  if (!resolveRes.ok) return null;
+  if (!resolveRes.ok) {
+    const { message, body } = await readSoundcloudErrorBody(resolveRes);
+    logSoundcloud(
+      resolveRes.status >= 500 ? "error" : "warn",
+      "profile resolve failed",
+      {
+        method: "GET",
+        path: "/resolve",
+        permalink,
+        message,
+        body,
+        ...soundcloudResponseMeta(resolveRes),
+      },
+    );
+    return null;
+  }
 
   const user = (await resolveRes.json()) as RawApiUser;
   if (user.kind !== undefined && user.kind !== "user") {
@@ -402,9 +433,21 @@ async function fetchViaHydration(
       },
       { maxRetries: 2, baseDelayMs: 500 },
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      logSoundcloud("warn", "profile hydration failed", {
+        method: "GET",
+        permalink,
+        ...soundcloudResponseMeta(res),
+      });
+      return null;
+    }
     html = await res.text();
-  } catch {
+  } catch (err) {
+    logSoundcloud("warn", "profile hydration network error", {
+      permalink,
+      name: (err as Error).name,
+      message: (err as Error).message,
+    });
     return null;
   }
 
@@ -516,10 +559,11 @@ export async function getSoundcloudStatsSafe(
   try {
     return await fetchSoundcloudStats({ permalink });
   } catch (err) {
-    console.warn(
-      "[soundcloud] fetchSoundcloudStats failed:",
-      (err as Error).message,
-    );
+    logSoundcloud("error", "fetchSoundcloudStats failed", {
+      permalink,
+      name: (err as Error).name,
+      message: (err as Error).message,
+    });
     return null;
   }
 }

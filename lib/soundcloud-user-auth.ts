@@ -4,7 +4,12 @@ import { createHash } from "node:crypto";
 
 import { randomToken, seal, sign, unseal, verify } from "@/lib/crypto-utils";
 import type { GateFanIdentity } from "@/lib/gate-types";
-import { fetchWithRetry } from "@/lib/soundcloud-http";
+import {
+  fetchWithRetry,
+  logSoundcloud,
+  readSoundcloudErrorBody,
+  soundcloudResponseMeta,
+} from "@/lib/soundcloud-http";
 
 /**
  * SoundCloud Authorization Code + PKCE flow, used to act on a fan's behalf.
@@ -255,11 +260,26 @@ export async function exchangeCodeForToken(input: {
   );
 
   if (!res.ok) {
+    const { message, body } = await readSoundcloudErrorBody(res);
+    logSoundcloud("error", "token-exchange-failed", {
+      method: "POST",
+      path: "/oauth/token",
+      message,
+      body,
+      ...soundcloudResponseMeta(res),
+    });
     throw new Error(`token-exchange-failed:${res.status}`);
   }
 
   const json = (await res.json()) as TokenResponse;
-  if (!json.access_token) throw new Error("token-response-malformed");
+  if (!json.access_token) {
+    logSoundcloud("error", "token-exchange-malformed", {
+      method: "POST",
+      path: "/oauth/token",
+      keys: Object.keys(json),
+    });
+    throw new Error("token-response-malformed");
+  }
 
   const lifetime = typeof json.expires_in === "number" ? json.expires_in : 3600;
   return {
@@ -297,7 +317,17 @@ export async function fetchFanIdentity(
     { maxRetries: 2, baseDelayMs: 400 },
   );
 
-  if (!res.ok) throw new Error(`me-failed:${res.status}`);
+  if (!res.ok) {
+    const { message, body } = await readSoundcloudErrorBody(res);
+    logSoundcloud("error", "me-failed", {
+      method: "GET",
+      path: "/me",
+      message,
+      body,
+      ...soundcloudResponseMeta(res),
+    });
+    throw new Error(`me-failed:${res.status}`);
+  }
 
   const raw = (await res.json()) as RawMe;
   const urn =
