@@ -6,7 +6,10 @@ Status: **analysis only.** No product code changes.
 > Laylo and ManyChat rather than Hypeddit — is in
 > [`fan-messaging-business-assessment.md`](fan-messaging-business-assessment.md). It
 > reaches a more favourable conclusion, largely because Meta's API access is open where
-> Spotify's is closed. Read both before choosing.
+> Spotify's is closed. Read both before choosing. Its supporting research is split across
+> [`fan-messaging-research-2026.md`](fan-messaging-research-2026.md) (platform and legal
+> groundwork) and [`laylo-market-research-2026.md`](laylo-market-research-2026.md)
+> (Laylo profile, competitive set, demand signals, comment-to-DM).
 
 This document exists to answer four questions before any multi-tenant code gets written:
 
