@@ -511,14 +511,18 @@ exactly your customer's usage pattern).
 | **Artist** | **$19/mo or $180/yr** | Unlimited flows, 5,000 DMs + 25,000 emails/mo, no branding, all music templates, fan CRM, Discord |
 | **Pro** | **$39/mo or $360/yr** | 25,000 DMs + 150,000 emails, custom domain, pixels/CAPI, stem packs with licence capture, paid downloads, API |
 | **Label** | **$149–399/mo** | Multi-artist roster, seats, demo portal, white-label, priority support |
-| Overage | — | $0.004/DM, $0.0005/email — roughly 4–5× cost, far below Laylo's ~$0.02/DM |
+| Overage | — | $0.004/DM, $0.0005/email — one fifth of Laylo's ~$0.02/DM |
 
 The deliberate choices:
 
-- **Undercut on messaging, not on subscription.** Laylo's ~$0.02 per DM has ~100%
-  margin. Charging $0.004 is still a 4–5× markup, reads as dramatically cheaper on any
-  comparison, and remains highly profitable. Compete where the incumbent's margin is
-  fat, not where it is thin.
+- **Undercut on messaging, not on subscription.** Laylo's ~$0.02 per DM is ~100% margin
+  because Meta charges nothing to send it. Pricing at $0.004 is still ~100% margin on
+  the DM itself (the marginal send cost is zero; the $0.004 covers webhook processing,
+  storage and support), reads as five times cheaper on any comparison, and stays highly
+  profitable. Compete where the incumbent's margin is fat, not where it is thin — which
+  is why the same logic must **not** be extended to SMS, where the market floor has
+  already been set at ~$0.004 per message by SoundCloud's Subtext bundle and the
+  marginal cost is $0.011–0.013.
 - **A real free tier**, because it costs almost nothing and it is the entire strategy
   for capturing ManyChat's displaced users. 500 DMs a month is a genuinely useful
   campaign, not a 25-contact trial.
@@ -575,6 +579,21 @@ count.
   analogue of the SoundCloud risk, and the track record says it recurs); Laylo shipping
   gated file delivery; or App Review rejecting the use case outright, which would be a
   hard stop.
+
+### The threat that is easiest to underrate
+
+Not Laylo, and not ManyChat: **SoundCloud.** Since July 2025 it has bundled Subtext into
+Artist Pro at $41.25/month for 10,000 messages — a fan-messaging product inside the exact
+subscription your target customer already pays for, and the same subscription the
+bring-your-own-credentials design in the companion analysis depends on them holding.
+
+That is a distribution advantage no amount of product quality overcomes, and it is
+distinct from the price threat. If SoundCloud extends that bundle from SMS into
+comment-to-DM or file delivery, the wedge in §5 closes from a direction that has nothing
+to do with Laylo. Worth watching as a leading indicator, and worth factoring into any
+decision to build on top of SoundCloud's ecosystem at all: the platform is
+simultaneously your customers' host, your API dependency, and a competitor bundling
+against you.
 
 ### The honest caveat
 
