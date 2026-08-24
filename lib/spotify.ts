@@ -22,7 +22,9 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 
-const DEFAULT_ARTIST_ID = "64XV9aZxwoLuxf9tgvu9Pb";
+import { DEFAULT_SPOTIFY_ARTIST_ID, parseSpotifyArtistId } from "@/lib/spotify-gate";
+
+const DEFAULT_ARTIST_ID = DEFAULT_SPOTIFY_ARTIST_ID;
 
 const SPOTIFY_API = "https://api.spotify.com/v1";
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
@@ -151,6 +153,31 @@ async function spotifyFetch<T>(path: string, market = "US"): Promise<T> {
     throw new Error(`Spotify ${path} failed: ${res.status} ${await res.text()}`);
   }
   return (await res.json()) as T;
+}
+
+/** Best-effort name lookup for an admin-pasted artist id. Null if unconfigured. */
+export async function lookupSpotifyArtistName(
+  id: string,
+): Promise<string | null> {
+  try {
+    const artist = await spotifyFetch<{ name?: string }>(`/artists/${id}`);
+    return typeof artist.name === "string" && artist.name.length > 0
+      ? artist.name
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function resolveAdminSpotifyArtist(input: string): Promise<
+  | { empty: true }
+  | { error: string }
+  | { id: string; name: string | null }
+> {
+  const parsed = parseSpotifyArtistId(input);
+  if ("empty" in parsed || "error" in parsed) return parsed;
+  const name = await lookupSpotifyArtistName(parsed.id);
+  return { id: parsed.id, name };
 }
 
 // ---------- Anonymous (partner) token ----------

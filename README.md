@@ -45,14 +45,16 @@ If credentials are not configured, the site degrades gracefully by reading the s
 
 ## Download gates
 
-A download gate is a public page for one song (`/gate/<slug>`) where a fan connects their SoundCloud account, likes / reposts / comments on / follows the track, leaves a name and email, and gets a download in return. Gates are managed at `/admin/gates`.
+A download gate is a public page for one song (`/gate/<slug>`) where a fan gives a name and email, connects SoundCloud for like / repost / comment / follow, optionally follows on Spotify (open the artist page, then attest), and gets a download in return. Gates are managed at `/admin/gates`.
 
-Design notes and the reasoning behind the constraints live in [`docs/download-gate-plan.md`](docs/download-gate-plan.md). A proposed Spotify follow step (open the Spotify page, then attest; structured for more Spotify actions later) is in [`docs/spotify-gate-plan.md`](docs/spotify-gate-plan.md). The short version of what matters when changing this code:
+Design notes and the reasoning behind the constraints live in [`docs/download-gate-plan.md`](docs/download-gate-plan.md). Spotify follow (open the artist page, then attest; structured for more Spotify actions later) is in [`docs/spotify-gate-plan.md`](docs/spotify-gate-plan.md). The short version of what matters when changing this code:
 
 - **Writes need a user token.** `lib/soundcloud-auth.ts` holds an app-level client-credentials token that can only *read*. Like / repost / comment / follow all require the Authorization Code + PKCE flow in `lib/soundcloud-user-auth.ts`.
-- **One action per click, no bulk button.** SoundCloud's API terms only permit acting on a user's behalf for actions "specifically and deliberately initiated by the user". Comment text is always written by the fan and never pre-filled.
+- **Email is identity.** Name + email is step 1. Unlock rows key on `(gate_id, lower(email))`. Returning fans re-enter the same address (or keep the claim cookie) instead of reconnecting SoundCloud to download.
+- **One SoundCloud action per click, no bulk button.** SoundCloud's API terms only permit acting on a user's behalf for actions "specifically and deliberately initiated by the user". Comment text is always written by the fan and never pre-filled.
+- **Spotify follow is honor-system.** The gate opens the artist page; the fan follows there and attests. We do not request a Spotify user grant.
 - **The gated file is never SoundCloud audio.** The terms prohibit apps that persist or re-serve SoundCloud content, so the deliverable is always a file you upload or a URL you host. There is deliberately no code path from a track to a download.
-- **Fan OAuth tokens are never stored.** They live in an encrypted cookie for their ~1 hour lifetime. Download entitlement comes from our own unlock record, so it survives token expiry.
+- **Fan OAuth tokens are never stored.** SoundCloud tokens live in an encrypted cookie for their ~1 hour lifetime. Download entitlement comes from our own unlock record, so it survives token expiry.
 - **The comment endpoint is not idempotent.** `gate_unlocks.commented_at` is the guard that stops a refresh from posting duplicate comments — check it before calling the API.
 
 ### Setup

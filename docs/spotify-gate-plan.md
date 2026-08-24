@@ -1,7 +1,7 @@
 # Spotify Download-Gate Steps — Design Plan
 
-Status: **proposed, decisions recorded** — this is a design, not a build. The
-SoundCloud gate this extends is documented in
+Status: **implemented** (v1: email-first identity + honor-system Spotify follow).
+The SoundCloud gate this extends is documented in
 [`docs/download-gate-plan.md`](download-gate-plan.md).
 
 A download gate today is SoundCloud-shaped: the fan connects SoundCloud,

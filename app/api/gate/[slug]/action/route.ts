@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { applyAction } from "@/lib/gate-service";
-import { readSessionFromCookies } from "@/lib/gate-request";
+import {
+  readClaimFromCookies,
+  readSessionFromCookies,
+} from "@/lib/gate-request";
 import {
   GATE_ACTION_KINDS,
   type GateActionKind,
@@ -9,12 +12,11 @@ import {
 } from "@/lib/gate-types";
 
 /**
- * Performs exactly one SoundCloud action for the connected fan.
+ * Performs exactly one gate action for the claimed fan.
  *
- * One action per request, by design. The API terms only permit acting on a
- * user's behalf for actions "specifically and deliberately initiated by the
- * user", so there is deliberately no batch endpoint that would let the UI fire
- * all four from a single press.
+ * SoundCloud kinds still need a live user token and one deliberate click.
+ * Spotify kinds are attestations: the fan opened Spotify and says they did
+ * the thing. There is deliberately no batch endpoint.
  */
 export async function POST(
   request: Request,
@@ -38,7 +40,10 @@ export async function POST(
   }
 
   const comment = typeof payload.comment === "string" ? payload.comment : undefined;
-  const session = await readSessionFromCookies();
+  const [session, claim] = await Promise.all([
+    readSessionFromCookies(),
+    readClaimFromCookies(),
+  ]);
 
   let result: Awaited<ReturnType<typeof applyAction>>;
   try {
@@ -47,11 +52,12 @@ export async function POST(
       action: action as GateActionKind,
       commentBody: comment,
       session,
+      claim,
     });
   } catch (err) {
     console.error("[gate] action route threw", err);
     return json(
-      { ok: false, error: "SoundCloud is having trouble. Try again." },
+      { ok: false, error: "Something went wrong. Try again." },
       502,
     );
   }

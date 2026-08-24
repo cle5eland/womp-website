@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { GateExperience } from "@/components/gate-experience";
-import { readSessionFromCookies } from "@/lib/gate-request";
+import {
+  readClaimFromCookies,
+  readSessionFromCookies,
+} from "@/lib/gate-request";
 import { loadGateViewState } from "@/lib/gate-service";
 import { getPublishedGateBySlug } from "@/lib/gate-store";
 import { isDatabaseConfigured } from "@/lib/db";
@@ -22,6 +25,7 @@ const ERROR_COPY: Record<string, string> = {
   exchange_failed: "We could not complete the SoundCloud connection. Try again.",
   not_configured:
     "SoundCloud sign-in is not set up on this site yet. Please check back soon.",
+  claim_required: "Enter your name and email first, then connect SoundCloud.",
 };
 
 export async function generateMetadata({
@@ -55,7 +59,8 @@ export default async function GatePage({ params, searchParams }: PageProps) {
   const query = await searchParams;
 
   const session = await readSessionFromCookies();
-  const state = await loadGateViewState(slug, session);
+  const claim = await readClaimFromCookies();
+  const state = await loadGateViewState(slug, { claim, session });
   if (!state) notFound();
 
   const errorCode = typeof query.error === "string" ? query.error : null;

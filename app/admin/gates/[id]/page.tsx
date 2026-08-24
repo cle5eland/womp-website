@@ -48,6 +48,9 @@ export default async function EditGatePage({
           deliveryExternalUrl: gate.deliveryExternalUrl,
           deliveryFilename: gate.deliveryFilename,
           deliverySizeBytes: gate.deliverySizeBytes,
+          spotifyArtistUrl: gate.spotifyArtistId
+            ? `https://open.spotify.com/artist/${gate.spotifyArtistId}`
+            : "",
         }}
         unlocks={unlocks.map((row) => ({
           id: row.id,

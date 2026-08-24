@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { readClaimFromCookies } from "@/lib/gate-request";
 import {
   FAN_SESSION_COOKIE,
   FAN_SESSION_MAX_AGE,
@@ -27,6 +28,12 @@ export async function GET(
   const { slug } = await context.params;
   const origin = new URL(request.url).origin;
   const gateUrl = new URL(`/gate/${encodeURIComponent(slug)}`, origin);
+
+  const claim = await readClaimFromCookies();
+  if (!claim) {
+    gateUrl.searchParams.set("error", "claim_required");
+    return NextResponse.redirect(gateUrl);
+  }
 
   // Local development: SoundCloud is stubbed, so mint a session directly.
   if (isMockMode()) {

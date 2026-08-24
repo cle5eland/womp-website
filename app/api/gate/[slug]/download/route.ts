@@ -2,7 +2,7 @@ import { get } from "@vercel/blob";
 import { NextResponse } from "next/server";
 
 import { authorizeDownload, noteDownload } from "@/lib/gate-service";
-import { readSessionFromCookies } from "@/lib/gate-request";
+import { readClaimFromCookies } from "@/lib/gate-request";
 
 /**
  * Serves the gated file, but only after re-deriving the fan's entitlement from
@@ -19,9 +19,9 @@ export async function GET(
   context: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await context.params;
-  const session = await readSessionFromCookies();
+  const claim = await readClaimFromCookies();
 
-  const grant = await authorizeDownload({ slug, session });
+  const grant = await authorizeDownload({ slug, claim });
   if (!grant.ok) {
     return NextResponse.json({ error: grant.error }, { status: grant.status });
   }

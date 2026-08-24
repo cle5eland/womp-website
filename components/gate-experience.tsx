@@ -4,33 +4,34 @@ import { useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 
-import { SoundcloudIcon } from "@/components/platform-icons";
+import { SoundcloudIcon, SpotifyIcon } from "@/components/platform-icons";
 import {
   GATE_ACTION_LABELS,
   type GateActionKind,
   type GateActionResponse,
+  type GateClaimIdentity,
   type GateProgress,
   type GateViewState,
   MAX_COMMENT_LENGTH,
   MIN_COMMENT_LENGTH,
   gateStepCounts,
   incompleteStep,
+  isSpotifyAction,
 } from "@/lib/gate-types";
 
 /**
  * The fan-facing download gate.
  *
- * One button per action, on purpose: the SoundCloud API terms only permit
- * acting on a user's behalf for actions they "specifically and deliberately"
- * initiated, so there is no "do everything" control here and the comment box
- * is never pre-filled.
+ * One button per SoundCloud action, on purpose: the SoundCloud API terms only
+ * permit acting on a user's behalf for actions they "specifically and
+ * deliberately" initiated. Spotify steps open the artist page and take an
+ * attestation — we never connect to the fan's Spotify account.
  *
- * Server state is authoritative. Every response carries the full `progress`
- * object and the recomputed `unlocked` flag, and this component simply renders
- * whatever came back rather than optimistically guessing.
+ * Email is step 1 and the identity. Server state is authoritative.
  */
 
 const SOUNDCLOUD_ORANGE = "#ff5500";
+const SPOTIFY_GREEN = "#1ED760";
 
 type Busy = GateActionKind | "claim" | null;
 
@@ -44,6 +45,7 @@ export function GateExperience({
   const { gate, mockMode } = state;
 
   const [fan, setFan] = useState(state.fan);
+  const [claim, setClaim] = useState<GateClaimIdentity | null>(state.claim);
   const [progress, setProgress] = useState<GateProgress>(state.progress);
   const [unlocked, setUnlocked] = useState(state.unlocked);
   const [busy, setBusy] = useState<Busy>(null);
@@ -51,8 +53,8 @@ export function GateExperience({
   const [needsReconnect, setNeedsReconnect] = useState(false);
 
   const [comment, setComment] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState(state.claim?.firstName ?? "");
+  const [email, setEmail] = useState(state.claim?.email ?? "");
   const [consent, setConsent] = useState(false);
 
   const currentStep = incompleteStep(gate.requirements, progress);
@@ -108,11 +110,14 @@ export function GateExperience({
   async function submitContact(event: React.FormEvent) {
     event.preventDefault();
     if (!consent) return;
-    await post(
+    const ok = await post(
       `/api/gate/${encodeURIComponent(gate.slug)}/claim`,
       { firstName, email, marketingConsent: true },
       "claim",
     );
+    if (ok) {
+      setClaim({ firstName: firstName.trim(), email: email.trim().toLowerCase() });
+    }
   }
 
   return (
@@ -146,57 +151,67 @@ export function GateExperience({
         </motion.p>
       ) : null}
 
-      {!fan || needsReconnect ? (
-        <ConnectPanel href={connectHref} reconnect={needsReconnect} />
+      {!claim ? null : fan && !needsReconnect ? (
+        <ConnectedAs
+          username={fan.username}
+          avatarUrl={fan.avatarUrl}
+          profileUrl={fan.permalinkUrl}
+        />
+      ) : (
+        <ClaimedAs firstName={claim.firstName} email={claim.email} />
+      )}
+
+      {unlocked || currentStep === null ? (
+        <ThankYou slug={gate.slug} filename={gate.deliveryFilename} />
       ) : (
         <>
-          <ConnectedAs
-            username={fan.username}
-            avatarUrl={fan.avatarUrl}
-            profileUrl={fan.permalinkUrl}
-          />
-
-          {unlocked || currentStep === null ? (
-            <ThankYou slug={gate.slug} filename={gate.deliveryFilename} />
-          ) : (
-            <>
-              <ProgressTracker done={counts.done} total={counts.total} />
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={currentStep}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  {currentStep === "contact" ? (
-                    <ContactStep
-                      index={counts.done + 1}
-                      busy={busy === "claim"}
-                      disabled={busy !== null}
-                      firstName={firstName}
-                      email={email}
-                      consent={consent}
-                      onFirstName={setFirstName}
-                      onEmail={setEmail}
-                      onConsent={setConsent}
-                      onSubmit={submitContact}
-                    />
-                  ) : (
-                    <StepRow
-                      index={counts.done + 1}
-                      kind={currentStep}
-                      busy={busy === currentStep}
-                      disabled={busy !== null}
-                      comment={comment}
-                      onComment={setComment}
-                      onRun={() => runAction(currentStep)}
-                    />
-                  )}
-                </motion.div>
-              </AnimatePresence>
-            </>
-          )}
+          <ProgressTracker done={counts.done} total={counts.total} />
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentStep}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {currentStep === "contact" ? (
+                <ContactStep
+                  index={counts.done + 1}
+                  busy={busy === "claim"}
+                  disabled={busy !== null}
+                  firstName={firstName}
+                  email={email}
+                  consent={consent}
+                  onFirstName={setFirstName}
+                  onEmail={setEmail}
+                  onConsent={setConsent}
+                  onSubmit={submitContact}
+                />
+              ) : isSpotifyAction(currentStep) ? (
+                <SpotifyStep
+                  index={counts.done + 1}
+                  kind={currentStep}
+                  artistName={gate.spotifyArtistName}
+                  artistUrl={gate.spotifyArtistUrl}
+                  busy={busy === currentStep}
+                  disabled={busy !== null}
+                  onAttest={() => runAction(currentStep)}
+                />
+              ) : !fan || needsReconnect ? (
+                <ConnectPanel href={connectHref} reconnect={needsReconnect} />
+              ) : (
+                <StepRow
+                  index={counts.done + 1}
+                  kind={currentStep}
+                  busy={busy === currentStep}
+                  disabled={busy !== null}
+                  comment={comment}
+                  onComment={setComment}
+                  onRun={() => runAction(currentStep)}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
         </>
       )}
 
@@ -302,7 +317,7 @@ function ConnectPanel({
       <p className="text-sm leading-relaxed text-zinc-300">
         {reconnect
           ? "Reconnect your SoundCloud account to pick up where you left off."
-          : "Connect your SoundCloud account to unlock the download. You choose each action — nothing happens without your say-so."}
+          : "Connect your SoundCloud account for the next steps. You choose each action — nothing happens without your say-so."}
       </p>
       <a
         href={href}
@@ -317,6 +332,80 @@ function ConnectPanel({
         and we do not store your SoundCloud login.
       </p>
     </div>
+  );
+}
+
+function ClaimedAs({
+  firstName,
+  email,
+}: {
+  firstName: string;
+  email: string;
+}) {
+  return (
+    <div className="mt-8 border border-white/[0.09] bg-black/40 px-4 py-3">
+      <p className="truncate text-xs text-zinc-400">
+        Continuing as{" "}
+        <span className="text-white">
+          {firstName} · {email}
+        </span>
+      </p>
+    </div>
+  );
+}
+
+function SpotifyStep({
+  index,
+  kind,
+  artistName,
+  artistUrl,
+  busy,
+  disabled,
+  onAttest,
+}: {
+  index: number;
+  kind: GateActionKind;
+  artistName: string;
+  artistUrl: string;
+  busy: boolean;
+  disabled: boolean;
+  onAttest: () => void;
+}) {
+  const [opened, setOpened] = useState(false);
+  const copy = GATE_ACTION_LABELS[kind];
+
+  return (
+    <StepShell
+      index={index}
+      title={copy.title}
+      helper={`Opens ${artistName} on Spotify. Follow there, then come back.`}
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <a
+          href={artistUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+          onClick={() => setOpened(true)}
+          className="inline-flex items-center justify-center gap-2 px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.25em] text-black transition hover:brightness-110"
+          style={{ backgroundColor: SPOTIFY_GREEN }}
+        >
+          <SpotifyIcon className="h-3.5 w-3.5" />
+          Open Spotify
+        </a>
+        <ActionButton onClick={onAttest} busy={busy} disabled={disabled || !opened}>
+          {copy.cta}
+        </ActionButton>
+      </div>
+      {!opened ? (
+        <p className="mt-3 text-[10px] text-zinc-600">
+          Open Spotify first — then confirm you followed.
+        </p>
+      ) : (
+        <p className="mt-3 text-[10px] text-zinc-600">
+          Followed {artistName}? Come back here and confirm.
+        </p>
+      )}
+    </StepShell>
   );
 }
 
@@ -534,8 +623,8 @@ function ContactStep({
   return (
     <StepShell
       index={index}
-      title="Where should we send this?"
-      helper="First name and email. Joining the email list is required to download — unsubscribe any time."
+      title="Your details"
+      helper="First name and email. Joining the email list is required — unsubscribe any time."
     >
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -571,12 +660,12 @@ function ContactStep({
             className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[color:var(--accent)]"
           />
           <span>
-            Email me about new music and shows. Required to download —
+            Email me about new music and shows. Required to continue —
             unsubscribe any time.
           </span>
         </label>
         <ActionButton type="submit" busy={busy} disabled={disabled || !consent}>
-          Unlock download
+          Continue
         </ActionButton>
       </form>
     </StepShell>
