@@ -1,7 +1,14 @@
 # Turning the download gate into a public product — feasibility, scope, pricing, costs
 
-Status: **analysis only.** No product code changes. This document exists to answer
-four questions before any multi-tenant code gets written:
+Status: **analysis only.** No product code changes.
+
+> A companion assessment of a different target market — fan messaging, competing with
+> Laylo and ManyChat rather than Hypeddit — is in
+> [`fan-messaging-business-assessment.md`](fan-messaging-business-assessment.md). It
+> reaches a more favourable conclusion, largely because Meta's API access is open where
+> Spotify's is closed. Read both before choosing.
+
+This document exists to answer four questions before any multi-tenant code gets written:
 
 1. What would it take to let *other* artists create download gates and smart links?
 2. What else could be sold alongside them?
