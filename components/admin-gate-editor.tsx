@@ -108,7 +108,9 @@ export function AdminGateEditor({
     setUploadPercent(0);
     try {
       const blob = await upload(file.name, file, {
-        access: "public",
+        // Matches the private Blob store: the URL is never handed to a fan,
+        // reads always go through the authorizing download route.
+        access: "private",
         handleUploadUrl: `/api/admin/gates/${gate.id}/upload`,
         onUploadProgress: ({ percentage }) => setUploadPercent(percentage),
       });

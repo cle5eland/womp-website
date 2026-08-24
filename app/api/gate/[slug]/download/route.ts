@@ -1,3 +1,4 @@
+import { get } from "@vercel/blob";
 import { NextResponse } from "next/server";
 
 import { authorizeDownload, noteDownload } from "@/lib/gate-service";
@@ -41,11 +42,19 @@ export async function GET(
     );
   }
 
-  const upstream = await fetch(gate.deliveryBlobUrl, { cache: "no-store" });
-  if (!upstream.ok || !upstream.body) {
-    console.error(
-      `[gate] blob fetch failed for ${slug}: ${upstream.status}`,
-    );
+  // The store is private, so this requires the read-write token / OIDC
+  // rather than a plain fetch — `get` handles that authentication for us.
+  let upstream;
+  try {
+    upstream = await get(gate.deliveryBlobUrl, {
+      access: "private",
+      useCache: false,
+    });
+  } catch (err) {
+    console.error(`[gate] blob fetch failed for ${slug}:`, err);
+    upstream = null;
+  }
+  if (!upstream || upstream.statusCode !== 200) {
     return NextResponse.json(
       { error: "The file could not be retrieved. Try again shortly." },
       { status: 502 },
@@ -58,16 +67,15 @@ export async function GET(
   const headers = new Headers({
     "content-type":
       gate.deliveryContentType ??
-      upstream.headers.get("content-type") ??
+      upstream.blob.contentType ??
       "application/octet-stream",
     "content-disposition": contentDisposition(filename),
+    "content-length": String(upstream.blob.size),
     // Entitlement is per-fan, so this must never be cached by a CDN.
     "cache-control": "private, no-store",
   });
-  const length = upstream.headers.get("content-length");
-  if (length) headers.set("content-length", length);
 
-  return new NextResponse(upstream.body, { status: 200, headers });
+  return new NextResponse(upstream.stream, { status: 200, headers });
 }
 
 /**
