@@ -1,8 +1,8 @@
 # Instagram Download-Gate Follow Step — Design Plan
 
-Status: **proposed, decisions recorded** — this is a design, not a build.
-Prerequisites (email-first identity + honor-system Spotify follow) are
-**on main** (merged #22); see [`docs/spotify-gate-plan.md`](spotify-gate-plan.md).
+Status: **implemented** (v1: honor-system Instagram follow after SoundCloud /
+Spotify). Prerequisites (email-first identity + honor-system Spotify follow)
+are on main (merged #22); see [`docs/spotify-gate-plan.md`](spotify-gate-plan.md).
 The SoundCloud gate is documented in
 [`docs/download-gate-plan.md`](download-gate-plan.md).
 

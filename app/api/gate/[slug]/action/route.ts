@@ -15,8 +15,8 @@ import {
  * Performs exactly one gate action for the claimed fan.
  *
  * SoundCloud kinds still need a live user token and one deliberate click.
- * Spotify kinds are attestations: the fan opened Spotify and says they did
- * the thing. There is deliberately no batch endpoint.
+ * Spotify / Instagram kinds are attestations: the fan opened the profile and
+ * says they did the thing. There is deliberately no batch endpoint.
  */
 export async function POST(
   request: Request,

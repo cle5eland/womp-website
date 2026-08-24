@@ -2,6 +2,10 @@ import "server-only";
 
 import { requireDb } from "@/lib/db";
 import {
+  DEFAULT_INSTAGRAM_HANDLE,
+  instagramProfileOpenUrl,
+} from "@/lib/instagram-gate";
+import {
   DEFAULT_SPOTIFY_ARTIST_ID,
   spotifyArtistOpenUrl,
 } from "@/lib/spotify-gate";
@@ -84,12 +88,14 @@ function mapGate(row: Row): GateRecord {
     artistUsername: String(row.artist_username),
     spotifyArtistId: asText(row.spotify_artist_id),
     spotifyArtistName: asText(row.spotify_artist_name),
+    instagramHandle: asText(row.instagram_handle),
     requirements: {
       like: row.require_like === true,
       repost: row.require_repost === true,
       comment: row.require_comment === true,
       follow: row.require_follow === true,
       spotify_follow: row.require_spotify_follow === true,
+      instagram_follow: row.require_instagram_follow === true,
     },
     deliveryKind: String(row.delivery_kind) as GateDeliveryKind,
     deliveryBlobUrl: asText(row.delivery_blob_url),
@@ -111,6 +117,7 @@ function mapProgress(row: Row): GateProgress {
     comment: asIso(row.commented_at),
     follow: asIso(row.followed_at),
     spotifyFollow: asIso(row.spotify_followed_at),
+    instagramFollow: asIso(row.instagram_followed_at),
     emailCapturedAt: asIso(row.email_captured_at),
     unlockedAt: asIso(row.unlocked_at),
   };
@@ -152,6 +159,10 @@ export function toPublicGate(gate: GateRecord): PublicGate {
     spotifyArtistName: gate.spotifyArtistName ?? "WOMP",
     spotifyArtistUrl: spotifyArtistOpenUrl(
       gate.spotifyArtistId ?? DEFAULT_SPOTIFY_ARTIST_ID,
+    ),
+    instagramHandle: gate.instagramHandle ?? DEFAULT_INSTAGRAM_HANDLE,
+    instagramProfileUrl: instagramProfileOpenUrl(
+      gate.instagramHandle ?? DEFAULT_INSTAGRAM_HANDLE,
     ),
   };
 }
@@ -298,6 +309,7 @@ export type CreateGateInput = {
   requirements: GateRequirements;
   spotifyArtistId: string | null;
   spotifyArtistName: string | null;
+  instagramHandle: string | null;
 };
 
 export async function createGate(input: CreateGateInput): Promise<GateRecord> {
@@ -308,7 +320,8 @@ export async function createGate(input: CreateGateInput): Promise<GateRecord> {
       soundcloud_url, track_urn, track_id, track_title, track_permalink_url,
       artwork_url, artist_user_urn, artist_username,
       require_like, require_repost, require_comment, require_follow,
-      require_spotify_follow, spotify_artist_id, spotify_artist_name
+      require_spotify_follow, spotify_artist_id, spotify_artist_name,
+      require_instagram_follow, instagram_handle
     ) values (
       ${input.ownerId}, ${input.slug}, ${input.title}, ${input.description}, 'draft',
       ${input.soundcloudUrl}, ${input.trackUrn}, ${input.trackId},
@@ -317,7 +330,9 @@ export async function createGate(input: CreateGateInput): Promise<GateRecord> {
       ${input.requirements.like}, ${input.requirements.repost},
       ${input.requirements.comment}, ${input.requirements.follow},
       ${input.requirements.spotify_follow},
-      ${input.spotifyArtistId}, ${input.spotifyArtistName}
+      ${input.spotifyArtistId}, ${input.spotifyArtistName},
+      ${input.requirements.instagram_follow},
+      ${input.instagramHandle}
     )
     returning *
   `;
@@ -331,6 +346,7 @@ export type UpdateGatePatch = {
   requirements?: GateRequirements;
   spotifyArtistId?: string | null;
   spotifyArtistName?: string | null;
+  instagramHandle?: string | null;
   deliveryKind?: GateDeliveryKind;
   deliveryBlobUrl?: string | null;
   deliveryExternalUrl?: string | null;
@@ -357,12 +373,16 @@ export async function updateGate(
     columns.require_comment = patch.requirements.comment;
     columns.require_follow = patch.requirements.follow;
     columns.require_spotify_follow = patch.requirements.spotify_follow;
+    columns.require_instagram_follow = patch.requirements.instagram_follow;
   }
   if (patch.spotifyArtistId !== undefined) {
     columns.spotify_artist_id = patch.spotifyArtistId;
   }
   if (patch.spotifyArtistName !== undefined) {
     columns.spotify_artist_name = patch.spotifyArtistName;
+  }
+  if (patch.instagramHandle !== undefined) {
+    columns.instagram_handle = patch.instagramHandle;
   }
   if (patch.deliveryKind !== undefined) {
     columns.delivery_kind = patch.deliveryKind;
@@ -419,6 +439,7 @@ const ACTION_COLUMN: Record<GateActionKind, string> = {
   comment: "commented_at",
   follow: "followed_at",
   spotify_follow: "spotify_followed_at",
+  instagram_follow: "instagram_followed_at",
 };
 
 export async function getUnlockByEmail(

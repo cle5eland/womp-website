@@ -51,6 +51,7 @@ export default async function EditGatePage({
           spotifyArtistUrl: gate.spotifyArtistId
             ? `https://open.spotify.com/artist/${gate.spotifyArtistId}`
             : "",
+          instagramHandle: gate.instagramHandle ?? "",
         }}
         unlocks={unlocks.map((row) => ({
           id: row.id,

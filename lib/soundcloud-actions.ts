@@ -431,7 +431,7 @@ export async function followArtist(
 
 /** Dispatch by action kind. Mock mode short-circuits every network call. */
 export async function performAction(input: {
-  action: Exclude<GateActionKind, "spotify_follow">;
+  action: "like" | "repost" | "comment" | "follow";
   accessToken: string;
   track: TrackTarget;
   artist: ArtistTarget;

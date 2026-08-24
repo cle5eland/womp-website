@@ -57,8 +57,8 @@ export default function PrivacyPage() {
               </Item>
               <Item>
                 A timestamp for each step you complete — including when you
-                confirm a Spotify follow — and a count of how many times you
-                downloaded the file.
+                confirm a Spotify or Instagram follow — and a count of how many
+                times you downloaded the file.
               </Item>
               <Item>
                 Your agreement to receive occasional emails about new music and
@@ -84,9 +84,9 @@ export default function PrivacyPage() {
                 library, your followers, or your listening history.
               </Item>
               <Item>
-                A Spotify login, user id, or access token. A Spotify step only
-                opens Spotify in a new tab; we record that you confirmed the
-                step, not who you are on Spotify.
+                A Spotify or Instagram login, user id, or access token. Those
+                steps only open the profile in a new tab; we record that you
+                confirmed the step, not who you are on those platforms.
               </Item>
             </ul>
           </Section>
@@ -103,12 +103,13 @@ export default function PrivacyPage() {
             </p>
           </Section>
 
-          <Section title="Spotify steps">
+          <Section title="Spotify and Instagram steps">
             <p>
-              If a download asks you to follow on Spotify, we send you to the
-              artist&apos;s Spotify page. Follow happens in Spotify, not in our
-              app. Coming back and pressing &quot;I followed&quot; is how we
-              mark that step done. We cannot see whether you actually followed.
+              If a download asks you to follow on Spotify or Instagram, we send
+              you to the artist&apos;s profile. Follow happens on that platform,
+              not in our app. Coming back and pressing &quot;I followed&quot; is
+              how we mark that step done. We cannot see whether you actually
+              followed.
             </p>
           </Section>
 

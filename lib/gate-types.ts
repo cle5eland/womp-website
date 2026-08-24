@@ -12,15 +12,17 @@
  */
 
 /**
- * SoundCloud writes plus Spotify honor-system steps. Spotify kinds are
- * fulfilled by opening Spotify and attesting; they never call a fan token.
+ * SoundCloud writes plus honor-system social steps. Spotify / Instagram kinds
+ * are fulfilled by opening the platform and attesting; they never call a fan
+ * token.
  */
 export type GateActionKind =
   | "like"
   | "repost"
   | "comment"
   | "follow"
-  | "spotify_follow";
+  | "spotify_follow"
+  | "instagram_follow";
 
 export const GATE_ACTION_KINDS: readonly GateActionKind[] = [
   "like",
@@ -28,16 +30,28 @@ export const GATE_ACTION_KINDS: readonly GateActionKind[] = [
   "comment",
   "follow",
   "spotify_follow",
+  "instagram_follow",
 ] as const;
 
-export type GateActionProvider = "soundcloud" | "spotify";
+export type GateActionProvider = "soundcloud" | "spotify" | "instagram";
 
 export function actionProvider(kind: GateActionKind): GateActionProvider {
-  return kind.startsWith("spotify_") ? "spotify" : "soundcloud";
+  if (kind.startsWith("spotify_")) return "spotify";
+  if (kind.startsWith("instagram_")) return "instagram";
+  return "soundcloud";
+}
+
+export function isAttestAction(kind: GateActionKind): boolean {
+  const provider = actionProvider(kind);
+  return provider === "spotify" || provider === "instagram";
 }
 
 export function isSpotifyAction(kind: GateActionKind): boolean {
   return actionProvider(kind) === "spotify";
+}
+
+export function isInstagramAction(kind: GateActionKind): boolean {
+  return actionProvider(kind) === "instagram";
 }
 
 export type GateStatus = "draft" | "published" | "archived";
@@ -48,8 +62,8 @@ export type GateDeliveryKind = "blob" | "external_url";
 export type GateRequirements = Record<GateActionKind, boolean>;
 
 /**
- * New gates require the SoundCloud actions and leave Spotify off until an
- * admin ticks it. `parseRequirements` starts from this object.
+ * New gates require SoundCloud actions and Instagram follow; Spotify stays
+ * off until an admin ticks it. `parseRequirements` starts from this object.
  */
 export const DEFAULT_GATE_REQUIREMENTS: GateRequirements = {
   like: true,
@@ -57,6 +71,7 @@ export const DEFAULT_GATE_REQUIREMENTS: GateRequirements = {
   comment: true,
   follow: true,
   spotify_follow: false,
+  instagram_follow: true,
 };
 
 /** Full database row. Server-side only in practice — see `PublicGate`. */
@@ -80,6 +95,8 @@ export type GateRecord = {
   /** Null means the site default (WOMP). */
   spotifyArtistId: string | null;
   spotifyArtistName: string | null;
+  /** Null means the site default (`wompbass`). */
+  instagramHandle: string | null;
   requirements: GateRequirements;
   deliveryKind: GateDeliveryKind;
   /** Vercel Blob URL. Never sent to the client. */
@@ -109,6 +126,9 @@ export type PublicGate = {
   /** Public Spotify artist page the follow step opens. */
   spotifyArtistName: string;
   spotifyArtistUrl: string;
+  /** Public Instagram profile the follow step opens. */
+  instagramHandle: string;
+  instagramProfileUrl: string;
 };
 
 /** The connected SoundCloud fan, as returned by `GET /me`. */
@@ -137,6 +157,7 @@ export type GateProgress = {
   comment: string | null;
   follow: string | null;
   spotifyFollow: string | null;
+  instagramFollow: string | null;
   emailCapturedAt: string | null;
   unlockedAt: string | null;
 };
@@ -147,6 +168,7 @@ export const EMPTY_PROGRESS: GateProgress = {
   comment: null,
   follow: null,
   spotifyFollow: null,
+  instagramFollow: null,
   emailCapturedAt: null,
   unlockedAt: null,
 };
@@ -228,6 +250,12 @@ export const GATE_ACTION_LABELS: Record<
     cta: "I followed",
     done: "Followed",
   },
+  instagram_follow: {
+    title: "Follow on Instagram",
+    helper: "Opens the profile on Instagram. Follow there, then come back.",
+    cta: "I followed",
+    done: "Followed",
+  },
 };
 
 /**
@@ -268,10 +296,12 @@ export function requiredActions(
 export function progressKey(
   kind: GateActionKind,
 ): Exclude<keyof GateProgress, "emailCapturedAt" | "unlockedAt"> {
-  return kind === "spotify_follow" ? "spotifyFollow" : kind;
+  if (kind === "spotify_follow") return "spotifyFollow";
+  if (kind === "instagram_follow") return "instagramFollow";
+  return kind;
 }
 
-/** SoundCloud / Spotify actions plus the contact form, which is always first. */
+/** Platform actions plus the contact form, which is always first. */
 export type GateFlowStep = GateActionKind | "contact";
 
 /**

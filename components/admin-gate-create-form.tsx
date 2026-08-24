@@ -20,6 +20,7 @@ export function AdminGateCreateForm() {
   const [requirements, setRequirements] =
     useState<GateRequirements>(DEFAULT_GATE_REQUIREMENTS);
   const [spotifyArtistUrl, setSpotifyArtistUrl] = useState("");
+  const [instagramHandle, setInstagramHandle] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,6 +41,7 @@ export function AdminGateCreateForm() {
           slug: normalizeSlug(slug),
           requirements,
           spotifyArtistUrl,
+          instagramHandle,
         }),
       });
       const data = (await res.json()) as { id?: string; error?: string };
@@ -109,8 +111,8 @@ export function AdminGateCreateForm() {
         </div>
         <p className="mt-3 text-[10px] leading-relaxed text-zinc-600">
           SoundCloud actions are performed through the fan&apos;s connected
-          account, one click each. Spotify follow opens the artist page and
-          asks them to attest.
+          account, one click each. Spotify and Instagram follow open the
+          profile and ask them to attest.
         </p>
       </fieldset>
 
@@ -125,6 +127,22 @@ export function AdminGateCreateForm() {
             onChange={(event) => setSpotifyArtistUrl(event.target.value)}
             placeholder="https://open.spotify.com/artist/…"
             inputMode="url"
+            autoComplete="off"
+            className={inputClass}
+          />
+        </Field>
+      ) : null}
+
+      {requirements.instagram_follow ? (
+        <Field
+          label="Instagram handle"
+          hint="Leave blank to use @wompbass. Paste a handle or profile URL."
+        >
+          <input
+            type="text"
+            value={instagramHandle}
+            onChange={(event) => setInstagramHandle(event.target.value)}
+            placeholder="@wompbass"
             autoComplete="off"
             className={inputClass}
           />

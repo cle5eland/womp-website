@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 
-import { SoundcloudIcon, SpotifyIcon } from "@/components/platform-icons";
+import { InstagramIcon, SoundcloudIcon, SpotifyIcon } from "@/components/platform-icons";
 import {
   GATE_ACTION_LABELS,
   type GateActionKind,
@@ -16,7 +16,8 @@ import {
   MIN_COMMENT_LENGTH,
   gateStepCounts,
   incompleteStep,
-  isSpotifyAction,
+  isAttestAction,
+  isInstagramAction,
 } from "@/lib/gate-types";
 
 /**
@@ -24,14 +25,15 @@ import {
  *
  * One button per SoundCloud action, on purpose: the SoundCloud API terms only
  * permit acting on a user's behalf for actions they "specifically and
- * deliberately" initiated. Spotify steps open the artist page and take an
- * attestation — we never connect to the fan's Spotify account.
+ * deliberately" initiated. Spotify / Instagram steps open the profile and take
+ * an attestation — we never connect to those accounts.
  *
  * Email is step 1 and the identity. Server state is authoritative.
  */
 
 const SOUNDCLOUD_ORANGE = "#ff5500";
 const SPOTIFY_GREEN = "#1ED760";
+const INSTAGRAM_PINK = "#E1306C";
 
 type Busy = GateActionKind | "claim" | null;
 
@@ -187,12 +189,43 @@ export function GateExperience({
                   onConsent={setConsent}
                   onSubmit={submitContact}
                 />
-              ) : isSpotifyAction(currentStep) ? (
-                <SpotifyStep
+              ) : isAttestAction(currentStep) ? (
+                <AttestStep
                   index={counts.done + 1}
                   kind={currentStep}
-                  artistName={gate.spotifyArtistName}
-                  artistUrl={gate.spotifyArtistUrl}
+                  targetName={
+                    isInstagramAction(currentStep)
+                      ? `@${gate.instagramHandle}`
+                      : gate.spotifyArtistName
+                  }
+                  openUrl={
+                    isInstagramAction(currentStep)
+                      ? gate.instagramProfileUrl
+                      : gate.spotifyArtistUrl
+                  }
+                  openLabel={
+                    isInstagramAction(currentStep)
+                      ? "Open Instagram"
+                      : "Open Spotify"
+                  }
+                  brandColor={
+                    isInstagramAction(currentStep)
+                      ? INSTAGRAM_PINK
+                      : SPOTIFY_GREEN
+                  }
+                  openTextClass={
+                    isInstagramAction(currentStep) ? "text-white" : "text-black"
+                  }
+                  icon={
+                    isInstagramAction(currentStep) ? (
+                      <InstagramIcon className="h-3.5 w-3.5" />
+                    ) : (
+                      <SpotifyIcon className="h-3.5 w-3.5" />
+                    )
+                  }
+                  platformName={
+                    isInstagramAction(currentStep) ? "Instagram" : "Spotify"
+                  }
                   busy={busy === currentStep}
                   disabled={busy !== null}
                   onAttest={() => runAction(currentStep)}
@@ -354,19 +387,29 @@ function ClaimedAs({
   );
 }
 
-function SpotifyStep({
+function AttestStep({
   index,
   kind,
-  artistName,
-  artistUrl,
+  targetName,
+  openUrl,
+  openLabel,
+  brandColor,
+  openTextClass,
+  icon,
+  platformName,
   busy,
   disabled,
   onAttest,
 }: {
   index: number;
   kind: GateActionKind;
-  artistName: string;
-  artistUrl: string;
+  targetName: string;
+  openUrl: string;
+  openLabel: string;
+  brandColor: string;
+  openTextClass: string;
+  icon: React.ReactNode;
+  platformName: string;
   busy: boolean;
   disabled: boolean;
   onAttest: () => void;
@@ -378,19 +421,19 @@ function SpotifyStep({
     <StepShell
       index={index}
       title={copy.title}
-      helper={`Opens ${artistName} on Spotify. Follow there, then come back.`}
+      helper={`Opens ${targetName} on ${platformName}. Follow there, then come back.`}
     >
       <div className="flex flex-wrap items-center gap-3">
         <a
-          href={artistUrl}
+          href={openUrl}
           target="_blank"
           rel="noreferrer noopener"
           onClick={() => setOpened(true)}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.25em] text-black transition hover:brightness-110"
-          style={{ backgroundColor: SPOTIFY_GREEN }}
+          className={`inline-flex items-center justify-center gap-2 px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.25em] transition hover:brightness-110 ${openTextClass}`}
+          style={{ backgroundColor: brandColor }}
         >
-          <SpotifyIcon className="h-3.5 w-3.5" />
-          Open Spotify
+          {icon}
+          {openLabel}
         </a>
         <ActionButton onClick={onAttest} busy={busy} disabled={disabled || !opened}>
           {copy.cta}
@@ -398,11 +441,11 @@ function SpotifyStep({
       </div>
       {!opened ? (
         <p className="mt-3 text-[10px] text-zinc-600">
-          Open Spotify first — then confirm you followed.
+          Open {platformName} first — then confirm you followed.
         </p>
       ) : (
         <p className="mt-3 text-[10px] text-zinc-600">
-          Followed {artistName}? Come back here and confirm.
+          Followed {targetName}? Come back here and confirm.
         </p>
       )}
     </StepShell>
