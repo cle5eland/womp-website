@@ -1,19 +1,15 @@
 # Instagram Download-Gate Follow Step — Design Plan
 
-Status: **proposed, decisions recorded** — this is a design, not a build. The
-SoundCloud gate this extends is documented in
-[`docs/download-gate-plan.md`](download-gate-plan.md). Email-first identity and
-Spotify Open + Attest steps are documented in
-[`docs/spotify-gate-plan.md`](spotify-gate-plan.md) (PR #22 /
-`cursor/spotify-gate-plan-bf6d`). This plan assumes that email-first flow has
-landed or lands in the same change set.
+Status: **proposed, decisions recorded** — this is a design, not a build.
+Prerequisites (email-first identity + honor-system Spotify follow) are
+**implemented** on PR #22 (`cursor/spotify-gate-plan-bf6d`); see
+[`docs/spotify-gate-plan.md`](spotify-gate-plan.md). The SoundCloud gate is
+documented in [`docs/download-gate-plan.md`](download-gate-plan.md).
 
-A download gate today is SoundCloud-shaped: the fan connects SoundCloud,
-completes like / repost / comment / follow as separate clicks, then leaves a
-name and email. The Spotify plan adds email-first identity and **honor-system**
-Spotify steps (open the Spotify page, then attest). Instagram fits the same
-attest pattern: Meta cannot verify a public “did this visitor follow us?” for a
-download gate, so we **open the profile, then attest**.
+Instagram is another **Open + Attest** step, after SoundCloud and Spotify.
+Meta cannot verify a public “did this visitor follow us?” for a download gate,
+so we open the profile and take their word — the same fulfillment model as
+`spotify_follow`.
 
 SoundCloud steps stay API-verified. Spotify and Instagram do not.
 
@@ -23,229 +19,193 @@ SoundCloud steps stay API-verified. Spotify and Instagram do not.
 
 | Question | Decision |
 | --- | --- |
-| Verification | **Honor system (Open + Attest).** Same class of step as Spotify in the Spotify plan. See [§1](#1-feasibility-why-not-an-api). |
-| Step order | **After SoundCloud and Spotify.** Contact (email) is first. Display order: contact → SoundCloud kinds → Spotify kinds → Instagram follow → download. |
-| New-gate default | **On.** Application create sets `require_instagram_follow: true`. Migration leaves existing rows `false` so live gates do not gain a new step. |
-| Target account | **Default `@wompbass`** (`instagramPermalink` / `instagramProfileUrl` in `lib/epk-data.ts`). Admin may override with a different handle or profile URL per gate. |
-| SoundCloud session | **Not required.** Instagram only needs the email claim cookie. |
-| Open before attest | Fan must **open the Instagram profile URL** this visit before “I followed” enables. Opening alone does not credit the step. Already following: still open + attest. |
-| Fan Instagram OAuth | **Out of scope.** No Instagram Login, no fan IG tokens, no IG user id on the unlock row. |
-| Shared UX with Spotify | **Reuse the same Open + Attest control.** One generic component; Instagram is another `stepFulfillment: "attest"` kind. |
+| Verification | **Honor system (Open + Attest).** Same class as `spotify_follow`. See [§1](#1-feasibility-why-not-an-api). |
+| Step order | **After SoundCloud and Spotify.** `GATE_ACTION_KINDS` order already drives `incompleteStep` (contact first via email check, then kinds in array order). Append `instagram_follow` after `spotify_follow`. |
+| New-gate default | **On.** `DEFAULT_GATE_REQUIREMENTS.instagram_follow = true`. Migration column default `false` so existing rows do not gain the step. |
+| Target account | **Default `@wompbass`** (`instagramPermalink` in `lib/epk-data.ts`). Admin may override per gate. |
+| SoundCloud session | **Not required.** Attest kinds only need the claim cookie (already true for Spotify in `applyAction`). |
+| Open before attest | Client enables “I followed” only after Open this visit — **same as `SpotifyStep`**. Server does not re-check the open signal. |
+| Fan Instagram OAuth | **Out of scope.** No IG Login, tokens, or fan IG id on the unlock row. |
+| Shared UX | **Generalize `SpotifyStep` into a shared attest step** (or add `InstagramStep` that copies it). Do not invent a third pattern. |
 
 ---
 
 ## 1. Feasibility: why not an API
 
-The site already has an Instagram Graph token (`INSTAGRAM_ACCESS_TOKEN`) used
-only for EPK stats (`lib/instagram-stats.ts`). That token can read **our**
-follower count and profile. It cannot answer “does visitor X follow us?”
+The site already has an Instagram Graph token (`INSTAGRAM_ACCESS_TOKEN`) for
+EPK stats (`lib/instagram-stats.ts`). That token reads **our** follower count.
+It cannot answer “does visitor X follow us?”
 
 | Approach | Why it does not fit |
 | --- | --- |
-| Artist Graph token | No endpoint to look up an arbitrary visitor’s follow relationship. |
-| Fan Instagram Login (Business Login) | Fan must have a professional account; still no clean “follow @wompbass” write or general contains-check for a third-party profile. |
-| Messaging `is_user_follow_business` | Only after the fan has messaged the business (consent via DM). Gate UX would be “DM me first,” which we are not doing. |
+| Artist Graph token | No lookup of an arbitrary visitor’s follow relationship. |
+| Fan Instagram Login | Needs a professional account; still no clean follow-write / contains for `@wompbass`. |
+| Messaging `is_user_follow_business` | Only after the fan DMs the business. Not acceptable UX. |
 
-Attested follow is the product choice, not a temporary shortcut — the same
-conclusion the Spotify plan reached for quota reasons. Soft friction (must
-open the profile first) stops accidental one-click skips without pretending we
-verified the follow.
-
-We are **not** acting on a fan’s Instagram account. We only record that they
-attested a follow after opening our profile. No Instagram app review for fan
-OAuth.
+Attested follow is the product choice. Soft friction (Open before Attest)
+matches Spotify and stops accidental one-click skips.
 
 ---
 
-## 2. Architecture
+## 2. Architecture (against the PR #22 codebase)
 
-### 2.1 Depends on email-first identity
-
-Unlocks key on `(gate_id, lower(email))` after the Spotify-plan identity
-change. Instagram stamps a timestamp on that same unlock row. There is no
-Instagram user id column — we never learn who they are on Instagram.
+### 2.1 Flow
 
 ```
-1. First name + email + list opt-in          ← claim cookie
-2. SoundCloud connect + required SC actions  ← API writes, if required
-3. Spotify Open + Attest steps               ← if required
-4. Instagram Open + Attest                   ← if required
+1. Contact (email-first claim cookie)     ← already shipped on #22
+2. SoundCloud connect + API actions       ← if required
+3. Spotify Open + Attest                  ← if required (spotify_follow)
+4. Instagram Open + Attest                ← if required (instagram_follow)
 5. Download
 ```
 
-`incompleteStep` includes Instagram after all SoundCloud and Spotify kinds.
-`isUnlocked` stays “email captured AND every required action has a timestamp.”
-
-Cookies (from the Spotify plan; Instagram adds none):
+Cookies stay as on #22 — Instagram adds none:
 
 ```
 womp_gate_claim     email identity
-womp_gate_fan       SoundCloud access token (SC writes only)
+womp_gate_fan       SoundCloud access token
 ```
 
-### 2.2 Provider / step typing
+### 2.2 Types
 
-Align with the Spotify plan’s dispatcher:
-
-```
-GateActionKind =
-  "like" | "repost" | "comment" | "follow"   // SoundCloud, API
-  | "spotify_follow" | …                     // Spotify, attest
-  | "instagram_follow"                       // Instagram, attest
-
-actionProvider(kind) → "soundcloud" | "spotify" | "instagram"
-stepFulfillment(kind) → "api" | "attest"
-```
-
-`POST /api/gate/[slug]/action` stays the single mutation route. Attest kinds
-require a claim cookie and `{ action, attested: true }`; they never call
-SoundCloud or Instagram APIs.
-
-Display / completion order:
+Extend what #22 already has in `lib/gate-types.ts`:
 
 ```
-contact
-→ like, repost, comment, follow          // SoundCloud
-→ spotify_follow, …                      // Spotify (when required)
-→ instagram_follow                       // Instagram (when required)
-→ download
+GateActionKind = … | "spotify_follow" | "instagram_follow"
+
+GATE_ACTION_KINDS = [ like, repost, comment, follow, spotify_follow, instagram_follow ]
+
+GateActionProvider = "soundcloud" | "spotify" | "instagram"
+
+actionProvider(kind):
+  kind.startsWith("spotify_") → "spotify"
+  kind.startsWith("instagram_") → "instagram"
+  else → "soundcloud"
+
+progressKey("instagram_follow") → "instagramFollow"
+
+DEFAULT_GATE_REQUIREMENTS.instagram_follow = true   // new gates only
 ```
 
-Until Spotify ships, order is contact → SC → Instagram.
-
-### 2.3 Data model
-
-Additive migration:
-
-```
-gates
-  require_instagram_follow   bool not null default false  -- DB default
-  instagram_handle           text null   -- null → epk-data "wompbass"
-  instagram_profile_url      text null   -- optional override; else derived
-
-gate_unlocks
-  instagram_followed_at      timestamptz null
-```
-
-**Defaults:** column default `false` so existing rows stay off. Admin/create
-API sets `require_instagram_follow: true` for **new** gates.
-
-Store a normalised handle on save (strip `@`, lowercase). Profile URL is
-`https://www.instagram.com/{handle}/` unless `instagram_profile_url` is set.
-If the requirement is on and handle/URL are empty, fall back to
-`instagramPermalink` from `lib/epk-data.ts` (same idea as Spotify →
-`SPOTIFY_ARTIST_ID`).
-
-Expose the open URL on `PublicGate` (public profile link, fine to send to the
-browser). CSV: add `instagram_followed_at`.
-
-### 2.4 Fan-facing flow
-
-Same Open + Attest chrome as Spotify:
-
-```
-/gate/dubstep-single
-  ├─ Track artwork, title, embeds
-  ├─ First name, email, list opt-in
-  ├─ SoundCloud connect + API actions
-  ├─ Spotify Open + Attest (when required)
-  └─ Follow on Instagram
-       [ Open Instagram ]  → new tab, profile page
-       [ I followed ]      → enabled after Open this visit; POST attest
-```
-
-Rules:
-
-1. **Claim required.** Attest rejects without `womp_gate_claim`. No SoundCloud
-   cookie needed.
-2. **Open before attest.** Client enables “I followed” only after Open is
-   clicked this visit — **same client-only gate as the Spotify plan.** Easy to
-   bypass; stops accidental one-click credits. Server trusts `attested: true`
-   the same way it trusts a typed SoundCloud comment.
-3. **Already following.** Still open + attest. Copy can say follow there, or
-   confirm if they already do.
-4. **Idempotent.** If `instagram_followed_at` is set, return success.
-5. **No bulk attest.** One deliberate confirm per step.
+`incompleteStep` / `isUnlocked` / `gateStepCounts` already walk
+`GATE_ACTION_KINDS` via `progressKey` — appending the kind is enough for order.
 
 Labels (match Spotify’s “I followed” voice):
 
 ```
 instagram_follow: {
   title: "Follow on Instagram",
-  helper: "Opens @wompbass on Instagram. Follow there, then come back.",
-  openCta: "Open Instagram",
+  helper: "Opens the profile on Instagram. Follow there, then come back.",
   cta: "I followed",
   done: "Followed",
 }
 ```
 
-Helper text should use the gate’s resolved handle when it is not `wompbass`.
+UI helper should interpolate the gate’s handle/name like `SpotifyStep` does
+with `artistName`.
 
-### 2.5 Routes
+### 2.3 Data model
 
-| Route | Purpose |
-| ----- | ------- |
-| `POST /api/gate/[slug]/claim` | Step 1 (email-first). Prerequisite. |
-| `GET /api/gate/[slug]/connect` | SoundCloud only. Unchanged. |
-| `POST /api/gate/[slug]/action` | `instagram_follow` with `attested: true`: claim cookie, stamp `instagram_followed_at`, refresh unlock. No platform session. |
-| `GET /api/gate/[slug]/download` | Claim cookie + unlocked row. |
+New migration (e.g. `0003_instagram_follow.sql`), additive:
 
-No Instagram callback, connect, or mock env flag. Open is a plain
-`target=_blank` (or `window.open`) to the public profile URL on `PublicGate`.
+```
+gates
+  require_instagram_follow   bool not null default false
+  instagram_handle           text null   -- null → epk-data "wompbass"
+  instagram_profile_name     text null   -- optional display label
 
-### 2.6 Modules / touch points
+gate_unlocks
+  instagram_followed_at      timestamptz null
+```
 
-| Area | Change |
-| --- | --- |
-| Migration | requirement + handle/url + `instagram_followed_at` |
-| `lib/gate-types.ts` | `instagram_follow` kind, `actionProvider` / `stepFulfillment`, labels, progress, `incompleteStep` order |
-| `lib/gate-store.ts` | requirements, mark attest, create default `true` |
-| `lib/gate-service.ts` | attest branch: claim required, no SC session |
-| Fan UI | Shared Open + Attest step in `gate-experience.tsx` (Spotify + Instagram) |
-| Admin | Toggle default on for creates; handle/URL field; “Follow on Instagram” |
-| Privacy | We record Instagram attest timestamps; we do not connect Instagram or store fan IG handles |
-| README | Point at this doc under Download gates |
+`PublicGate` gains `instagramHandle`, `instagramProfileUrl` (and optional
+display name), analogous to `spotifyArtistName` / `spotifyArtistUrl`.
 
-Do **not** reuse `lib/instagram-stats.ts`. Stats stay EPK-only.
+Create path: set `require_instagram_follow: true` in admin create /
+`DEFAULT_GATE_REQUIREMENTS`. CSV unlocks: add `instagram_followed_at`.
+
+### 2.4 Helpers
+
+Add `lib/instagram-gate.ts` (client-safe), mirroring `lib/spotify-gate.ts`:
+
+- `DEFAULT_INSTAGRAM_HANDLE = "wompbass"` (or re-export from `epk-data`)
+- `instagramProfileOpenUrl(handle)` → `https://www.instagram.com/{handle}/`
+- `parseInstagramHandle(input)` — accepts `@wompbass`, `wompbass`, or a full
+  `instagram.com/…` URL; empty → site default; invalid → error string
+
+Do **not** call `lib/instagram-stats.ts` from the gate path.
+
+### 2.5 Service / route
+
+`POST /api/gate/[slug]/action` already accepts any `GATE_ACTION_KINDS` entry.
+Extend `applyAction` so Instagram kinds behave like Spotify:
+
+- Require claim cookie
+- Do **not** require SoundCloud session
+- If progress already set → success
+- Else `markAction` / stamp `instagram_followed_at`, refresh unlock
+
+No `attested: true` body field (Spotify implementation does not use one).
+Open-gate is client-only.
+
+### 2.6 Fan UI
+
+Today `gate-experience.tsx` branches `isSpotifyAction(currentStep)` →
+`SpotifyStep` (Open + Attest, local `opened` state).
+
+Preferred: rename/generalize to `AttestStep` with `{ provider, openUrl,
+openLabel, brandColor, icon, title, helper, onAttest, busy, disabled }`.
+Wire both `spotify_follow` and `instagram_follow` through it.
+
+Instagram brand accent: existing site pink `#E1306C` (used on the EPK
+Instagram panel) — keep it for the Open button so the step is recognizable.
+
+### 2.7 Admin
+
+- Create/edit: checkbox “Follow on Instagram” (default checked on create)
+- Optional handle / profile URL field; empty = `@wompbass`
+- Relabel already done for SoundCloud (“Follow on SoundCloud”) on #22
+
+### 2.8 Privacy / README
+
+- Privacy: we record that you attested the Instagram follow; we do not connect
+  to Instagram or store a fan Instagram id (parallel to Spotify copy on #22)
+- README Download gates section: one bullet + link to this doc
 
 ---
 
-## 3. Interaction with Spotify / SoundCloud plans
+## 3. Interaction with Spotify / SoundCloud
 
 | Concern | Rule |
 | --- | --- |
-| Email-first | **Prerequisite** (Spotify plan). Land first or in the same series. |
-| Attest UX | **Share one Open + Attest component** with Spotify. Instagram is not a second UI pattern. |
-| Step order | Contact → SC → Spotify → Instagram. Hard-coded in `incompleteStep`. |
-| SC not required for IG | Gate with only contact + Instagram: claim, then Open + Attest. Remaining SC/Spotify steps still block Instagram until done (order). |
-| Defaults | New gates: Instagram **on**; Spotify kinds **off** (Spotify plan). SoundCloud unchanged. |
-| Relabel | SoundCloud follow → “Follow on SoundCloud”; Instagram → “Follow on Instagram”. |
+| Prerequisite | Merge or rebase onto #22 (email-first + Spotify attest) before implementing. |
+| Attest UX | Shared `AttestStep`; Instagram is not a second component family. |
+| Step order | Contact → SC → Spotify → Instagram via `GATE_ACTION_KINDS`. |
+| Defaults | Instagram **on** for new gates; Spotify follow **off** until admin enables. |
+| SC-only gates | Instagram waits until required SC (and Spotify) steps are done. Gate with contact + Instagram only: claim, then Open + Attest. |
 
 ---
 
 ## 4. Proposed build order
 
-Plan-only is done when this document is merged. Implementation later:
+1. Land / rebase onto **email-first + Spotify follow** (#22).
+2. Migration + `lib/instagram-gate.ts` + types (`instagram_follow`, progress,
+   defaults, `PublicGate` fields).
+3. Store + `applyAction` attest branch for Instagram (copy Spotify path).
+4. Fan UI: generalize `SpotifyStep` → `AttestStep`, wire Instagram.
+5. Admin toggle + handle field; CSV; privacy; README; a small flow test like
+   `lib/gate-flow.test.ts`.
 
-1. **Email-first + Spotify attest foundation** (Spotify plan) if not shipped —
-   claim cookie, `stepFulfillment`, shared Open + Attest UI.
-2. **Migration + types + store** for Instagram requirement, handle, timestamp.
-3. **Wire `instagram_follow`** through `/action` attest branch + step order.
-4. **Admin** toggle (create default on) + handle override; CSV; privacy; README.
-
-No new Instagram env vars for v1.
+No new Instagram env vars.
 
 ---
 
 ## Open questions
 
-1. **Existing published gates.** Recommendation: migration leaves them off;
-   only new gates default on. Flip any live gate on manually after ship if
-   wanted. (Spotify plan flips **email-first** onto all gates because there
-   are no real users yet — Instagram requirement is separate.)
-2. **Handle field shape.** Recommendation: one text field that accepts
-   `@wompbass`, `wompbass`, or a full `instagram.com/…` URL and normalises to a
-   handle; store derived canonical profile URL on the gate.
-3. **Ship with Spotify or after?** Recommendation: implement Instagram as soon
-   as the shared attest UI exists — either the same PR as Spotify follow, or
-   immediately after. Do not invent a second Open + Attest control.
+1. **Existing published gates.** Recommendation: leave `false` after
+   migration; only new gates default on. (Email-first on #22 already applies
+   to all gates; Instagram requirement is separate.)
+2. **Generalize vs copy `SpotifyStep`.** Recommendation: **generalize** in the
+   same PR that adds Instagram so a third attest provider does not fork UI.
+3. **Display name.** Store only handle, or also a freeform label? Recommendation:
+   handle is enough; helper text uses `@handle`.
