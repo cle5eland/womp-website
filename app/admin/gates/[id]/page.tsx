@@ -36,7 +36,6 @@ export default async function EditGatePage({
           id: gate.id,
           slug: gate.slug,
           title: gate.title,
-          description: gate.description,
           status: gate.status,
           trackTitle: gate.trackTitle,
           trackPermalinkUrl: gate.trackPermalinkUrl,

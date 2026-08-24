@@ -211,6 +211,35 @@ export function requiredActions(
   return GATE_ACTION_KINDS.filter((kind) => requirements[kind]);
 }
 
+/** SoundCloud actions plus the contact form, which is always last. */
+export type GateFlowStep = GateActionKind | "contact";
+
+/**
+ * The next incomplete step in the one-at-a-time flow, or `null` once
+ * everything is done and the thank-you / download screen should show.
+ */
+export function incompleteStep(
+  requirements: GateRequirements,
+  progress: GateProgress,
+): GateFlowStep | null {
+  for (const kind of requiredActions(requirements)) {
+    if (progress[kind] === null) return kind;
+  }
+  if (!progress.emailCapturedAt) return "contact";
+  return null;
+}
+
+/** How many flow steps are done vs remaining, including the contact form. */
+export function gateStepCounts(
+  requirements: GateRequirements,
+  progress: GateProgress,
+): { done: number; total: number } {
+  const actions = requiredActions(requirements);
+  const actionDone = actions.filter((kind) => progress[kind] !== null).length;
+  const contactDone = progress.emailCapturedAt ? 1 : 0;
+  return { done: actionDone + contactDone, total: actions.length + 1 };
+}
+
 /**
  * A gate is unlocked when every required action has a timestamp and the fan has
  * given us their name and email. Shared by the server (which enforces it) and

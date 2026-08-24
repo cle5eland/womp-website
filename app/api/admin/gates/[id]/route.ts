@@ -41,15 +41,8 @@ export async function PATCH(
   const patch: UpdateGatePatch = {};
 
   if (typeof payload.title === "string") {
-    const title = payload.title.trim();
-    if (!title) {
-      return NextResponse.json({ error: "Title cannot be empty." }, { status: 400 });
-    }
+    const title = payload.title.trim() || gate.trackTitle;
     patch.title = title;
-  }
-
-  if (typeof payload.description === "string") {
-    patch.description = payload.description.trim() || null;
   }
 
   if (payload.status !== undefined) {

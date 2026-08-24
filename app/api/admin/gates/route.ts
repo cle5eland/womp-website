@@ -15,7 +15,8 @@ import { resolveTrackByUrl } from "@/lib/soundcloud-actions";
  *
  * The track is resolved server-side so the stored URN, numeric id, title and
  * artist all come from SoundCloud rather than from the form — the admin only
- * supplies the URL, the slug, and which actions to require.
+ * supplies the URL, the slug, and which actions to require. The public
+ * headline defaults to the SoundCloud track title.
  *
  * New gates always start as drafts. Publishing is a separate PATCH, which keeps
  * a half-configured gate (no file attached yet) from being publicly reachable.
@@ -30,7 +31,6 @@ export async function POST(request: Request) {
     soundcloudUrl?: unknown;
     slug?: unknown;
     title?: unknown;
-    description?: unknown;
     requirements?: unknown;
   };
   try {
@@ -89,16 +89,11 @@ export async function POST(request: Request) {
       ? payload.title.trim()
       : resolved.track.title;
 
-  const description =
-    typeof payload.description === "string" && payload.description.trim().length > 0
-      ? payload.description.trim()
-      : null;
-
   const gate = await createGate({
     ownerId: admin.id,
     slug,
     title,
-    description,
+    description: null,
     soundcloudUrl: payload.soundcloudUrl.trim(),
     trackUrn: resolved.track.trackUrn,
     trackId: resolved.track.trackId,

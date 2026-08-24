@@ -17,7 +17,6 @@ export type AdminGateView = {
   id: string;
   slug: string;
   title: string;
-  description: string | null;
   status: GateStatus;
   trackTitle: string;
   trackPermalinkUrl: string;
@@ -56,7 +55,6 @@ export function AdminGateEditor({
   const router = useRouter();
 
   const [title, setTitle] = useState(gate.title);
-  const [description, setDescription] = useState(gate.description ?? "");
   const [requirements, setRequirements] = useState(gate.requirements);
   const [externalUrl, setExternalUrl] = useState(gate.deliveryExternalUrl ?? "");
   const [busy, setBusy] = useState<string | null>(null);
@@ -93,7 +91,9 @@ export function AdminGateEditor({
 
   async function saveDetails(event: React.FormEvent) {
     event.preventDefault();
-    if (await patch({ title, description, requirements }, "details")) {
+    const nextTitle = title.trim() || gate.trackTitle;
+    if (await patch({ title: nextTitle, requirements }, "details")) {
+      setTitle(nextTitle);
       setNotice("Saved.");
     }
   }
@@ -218,18 +218,12 @@ export function AdminGateEditor({
               type="text"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              required
+              placeholder={gate.trackTitle}
               className={inputClass}
             />
-          </label>
-          <label className="block">
-            <span className={labelClass}>Description</span>
-            <textarea
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              rows={3}
-              className={inputClass}
-            />
+            <span className="mt-1.5 block text-[10px] text-zinc-600">
+              Defaults to the SoundCloud track title.
+            </span>
           </label>
           <fieldset>
             <legend className={labelClass}>Required actions</legend>

@@ -34,9 +34,7 @@ export async function generateMetadata({
   if (!gate) return { title: "Download not found" };
 
   const title = `${gate.title} — free download`;
-  const description =
-    gate.description ??
-    `Get ${gate.trackTitle} by ${gate.artistUsername} — free download on SoundCloud.`;
+  const description = `Get ${gate.trackTitle} by ${gate.artistUsername} — free download on SoundCloud.`;
 
   return {
     title,

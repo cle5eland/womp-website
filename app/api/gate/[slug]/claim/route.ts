@@ -5,12 +5,12 @@ import { readSessionFromCookies } from "@/lib/gate-request";
 import type { GateActionResponse } from "@/lib/gate-types";
 
 /**
- * Records the fan's first name and email — the last step before the download
- * unlocks.
+ * Records the fan's first name, email, and required email-list opt-in — the
+ * last step before the download unlocks.
  *
  * Separate from `/action` because it touches no SoundCloud API and has its own
- * consent semantics: `marketingConsent` reflects an explicit checkbox, and the
- * timestamp we store is the record that it was ticked.
+ * consent semantics: `marketingConsent` must be true, and the timestamp we
+ * store is the record that the box was ticked.
  */
 export async function POST(
   request: Request,
