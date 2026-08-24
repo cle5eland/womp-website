@@ -19,7 +19,7 @@ import postgres from "postgres";
 import {
   describeTarget,
   loadEnvLocal,
-  requireMigrationUrl,
+  readMigrationUrl,
 } from "./db-url.mjs";
 
 const MIGRATIONS_DIR = join(
@@ -31,7 +31,17 @@ const MIGRATIONS_DIR = join(
 
 async function main() {
   await loadEnvLocal();
-  const { url, unpooled } = requireMigrationUrl();
+  const target = readMigrationUrl();
+  if (!target) {
+    // Preview deploys and local `next build` without a database must not fail.
+    // Production (Neon attached) always has DATABASE_URL and will migrate.
+    console.log(
+      "DATABASE_URL is not set — skipping migrations.\n" +
+        "Attach a Postgres store (Vercel → Storage → Neon) or set DATABASE_URL.",
+    );
+    return;
+  }
+  const { url, unpooled } = target;
   console.log(
     `Migrating ${describeTarget(url)}${unpooled ? " (direct connection)" : ""}\n`,
   );
