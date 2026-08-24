@@ -8,6 +8,16 @@ target: **fan messaging and conversational marketing**, in the space occupied by
 Same four questions: is it buildable, is it winnable, what would it cost, what would it
 be priced at.
 
+Two research documents sit underneath this one:
+
+- [`fan-messaging-research-2026.md`](fan-messaging-research-2026.md) — the platform and
+  legal groundwork: ManyChat pricing, Meta/Instagram API access, TikTok, WhatsApp, and US
+  SMS economics and TCPA exposure.
+- [`laylo-market-research-2026.md`](laylo-market-research-2026.md) — a full profile of
+  Laylo, the competitive set, demand signals, and comment-to-DM automation. It verifies
+  several figures that were unconfirmed when this assessment was written; where the two
+  disagree, the market research is newer and better sourced.
+
 ---
 
 ## 1. Executive summary
@@ -17,12 +27,16 @@ matter.**
 
 Better, for three reasons that are individually verifiable:
 
-1. **The platform door is open.** Meta's Instagram Messaging API requires business
-   verification, Tech Provider access verification, and per-permission App Review — a
-   bureaucratic slog, but there is **no minimum-scale requirement**. Compare Spotify,
-   which now demands 250,000 MAU for extended quota and thereby locks new entrants out
-   permanently. Meta will let you in if you do the paperwork. That is the single
-   biggest structural difference between this option and the last one.
+1. **The platform door is open — for acquisition.** Meta's Instagram Messaging API
+   requires business verification, Tech Provider access verification (~5-day decision),
+   and per-permission App Review — a bureaucratic slog, but there is **no minimum-scale
+   requirement**. Compare Spotify, which now demands 250,000 MAU for extended quota and
+   thereby locks new entrants out permanently. Meta will let you in if you do the
+   paperwork. That is the single biggest structural difference between this option and
+   the last one. **The important caveat is in §3.2:** comment-to-DM fulfilment is fully
+   available, but *recurring promotional broadcast* on Instagram was closed to new
+   integrations on 1 September 2025. Instagram is an acquisition channel; email has to
+   be the broadcast channel.
 2. **The incumbent just evacuated the low end.** On 2 March 2026 ManyChat cut its free
    tier from 1,000 active contacts to **25** — a 97.5% reduction — and moved to
    $14/$29/$69/$139 tiers with per-contact overages. Every hobbyist and small creator
@@ -46,17 +60,22 @@ leaving the uncapped-damages statute alone. It also happens to be the highest-ma
 configuration, because Meta charges nothing per Instagram DM while Laylo bills roughly
 two cents for it.
 
+And one honest asymmetry, which is the closest thing here to Spotify's wall: **Laylo
+almost certainly holds grandfathered Instagram broadcast access that a 2026 entrant
+cannot obtain.** You cannot match "message your Instagram list whenever you drop." You
+have to win on something else.
+
 **The wedge:** Laylo has messaging but no file fulfilment. This repo has file
 fulfilment — entitlement checks, private storage, `authorizeDownload` — but no
 messaging. The product neither of them offers is **"comment a keyword → get a DM →
-receive an authenticated download → become a known fan on my list."** That is what a
-download gate actually looks like in 2026, and it is a direct extension of code that
+receive an authenticated download → become a known fan on my email list."** That is what
+a download gate actually looks like in 2026, and it is a direct extension of code that
 already exists here rather than a new business.
 
 **Verdict:** more attractive than the Hypeddit option, and the better of the two if
-either is pursued. Base case **$80–250k ARR**; the ceiling is higher than download
-gates and the floor is similar. The deciding constraint is no longer platform
-permission — it is Meta App Review, then distribution.
+either is pursued. Base case **$80–250k ARR**; the ceiling is higher than download gates
+and the floor is similar. The deciding constraint is no longer platform permission — it
+is Meta App Review, then distribution.
 
 ---
 
@@ -145,54 +164,89 @@ how tools lose access.
   Using `HUMAN_AGENT` for bot sends is a fast route to losing API access.
 - **Sponsored Messages are not available for the Instagram Messaging API.**
 
-Third-party blogs conclude from this that you simply cannot reach fans on Instagram
-outside 24 hours. **That is wrong**, and the difference is the whole product. Meta's own
-documentation describes **Marketing Messages** (formerly Recurring Notifications):
+The descriptive body of Meta's **Marketing Messages** documentation (formerly Recurring
+Notifications) says the feature "allows a Facebook Page **or Instagram Professional
+Account** to send messages outside the standard messaging window for people who have
+given you permission to do so" — which reads like the answer. It is not, because of the
+"Upcoming Changes" banner at the top of the same page:
 
-> "Marketing Messages allows a Facebook Page **or Instagram Professional Account** to
-> send messages outside the standard messaging window for people who have given you
-> permission to do so."
+> "Starting September 1, 2025, marketing messages (also known as Recurring
+> Notifications) will have the following restrictions:
+> 1. Marketing messages ... access will be limited to existing Partners and end-clients.
+> **No new integrations will be allowed.**"
 
-The mechanics, which dictate the data model:
+And, separately on the same page: "Marketing messages ... on Messenger will be
+deprecated on February 10, 2026." The replacement product is named the **Marketing
+Messages on Messenger API** — Messenger, not Instagram — is gated behind App Review for
+`paid_marketing_messages`, and is restricted to a list of provider countries that
+excludes the EU and UK.
 
-1. Inside an open 24-hour window, send an opt-in request (`notification_messages`
-   template) naming a **topic** and a frequency of `DAILY`, `WEEKLY`, or `MONTHLY`.
-2. When the fan accepts, a `messaging_optin` webhook returns a
-   **`notification_messages_token`** — you send future messages addressed to that token,
-   not to the user ID.
-3. Token lifetimes are tied to frequency: `DAILY` = one message per 24h for **6
-   months**; `WEEKLY` = one per week for **9 months**; `MONTHLY` = one per month for
-   **12 months**. Fans can stop or resume, and can re-opt-in after expiry.
-4. Limits: one opt-in request per user per topic per week; from an Instagram
-   Professional account, roughly 10 opt-in requests for different titles per user per 7
-   days with a sub-limit of 5 per day.
+**So out-of-window promotional messaging on Instagram is closed to new entrants.** The
+capability exists, incumbents who integrated before 1 September 2025 keep it, and there
+is no application process to join them.
 
-So the compliant loop is:
+What a new entrant actually gets on Instagram:
+
+| Mechanism | Window | Usable for automated promo? |
+| --- | --- | --- |
+| Standard messaging window | 24h from the fan's last message | **Yes** |
+| Private reply to a comment | 7 days, one per comment | **Yes** |
+| `HUMAN_AGENT` tag | 7 days | No — human-written only |
+| Sponsored Messages | — | Not available on Instagram |
+| One-Time Notification | — | Not available on Instagram |
+| Marketing Messages | Recurring | **Closed to new integrations** |
+
+This is the analogue of the Spotify wall, and it needs to be stated plainly: **Laylo
+almost certainly holds grandfathered access to a capability you cannot obtain.** "Message
+your Instagram list whenever you drop" is on their marketing site and it is not
+something a 2026 entrant can replicate.
+
+### 3.3 What that means for the product
+
+It does not kill the plan, but it changes the pitch and it makes email load-bearing
+rather than supplementary. The compliant loop becomes:
 
 ```
 fan comments keyword on a post
-    → private reply opens the 24-hour window
+    → private reply opens the window (24h; 7 days for a comment reply)
     → deliver the download link (authenticated, entitlement-checked)
-    → ask for a Marketing Messages opt-in ("new releases", MONTHLY)
-    → send release-day notifications for up to 12 months
-    → re-opt-in on expiry
+    → capture email inside the same conversation
+    → broadcast future releases by EMAIL, which nobody can revoke
 ```
 
-That is a real, sanctioned, ownable audience channel. Three consequences worth
-designing for rather than discovering:
+Instagram is the **acquisition** channel — the highest-intent one most artists have,
+since the fan engaged publicly before you ever messaged them. Email is the **retention
+and broadcast** channel. That division is forced by Meta's rules, and it is worth noting
+it is also the more durable design: the leg that cannot be taken away is the one doing
+the recurring work.
+
+Three consequences worth designing for rather than discovering:
 
 - **Fan acquisition must start with a fan-initiated action.** Comment triggers, story
-  replies, and ice-breakers are the entry points. There is no cold DM.
-- **Lists decay and must be re-consented.** Structurally the same problem as Spotify's
-  6-month refresh-token expiry, and it needs the same answer: track token expiry per
-  fan, surface "X fans expiring this month", and prompt re-opt-in on the next inbound
-  interaction. This is a feature, and it is one artists will not think to ask for.
-- **The surface is not stable.** Meta ended Messenger's recurring-notifications API on
-  10 February 2026 and replaced it with a new Marketing Messages API, and deprecated
-  the `CONFIRMED_EVENT_UPDATE` tag in April 2026. Assume this changes again. Keep the
-  channel behind an abstraction so a policy change is a module rewrite, not a rebuild.
+  replies, and ice-breakers are the entry points. There is no cold DM, ever.
+- **Getting the email address is the whole job.** If a fan takes the download and never
+  hands over an email, you have acquired nothing durable. The DM flow should be designed
+  around that single conversion, and it is exactly what `gate_unlocks` already models.
+- **The surface is not stable.** Meta closed Marketing Messages to new integrations in
+  September 2025, deprecated the Messenger version in February 2026, and dropped the
+  `CONFIRMED_EVENT_UPDATE` tag in April 2026. Assume more of this. Keep each channel
+  behind an abstraction so a policy change is a module rewrite rather than a rebuild.
 
-### 3.3 SMS: buildable, and the reason not to
+**Engineering constraint to design in from the start:** private replies are capped at
+roughly **750 per hour per account** (Send API 100 calls/sec, Conversations API 2/sec).
+The cap is per *account*, not per app, so you cannot scale around one viral customer by
+adding capacity — a queue with per-account pacing is a launch requirement, not an
+optimisation. A producer whose track takes off will otherwise generate a backlog of
+fans who commented and never heard back.
+
+**Ongoing compliance overhead**, which is easy to miss when budgeting: an annual Data
+Protection Assessment (60 days to complete or access is lost), an annual Data Use
+Checkup, and a 90-day inactivity rule that invalidates tokens and forces permissions
+back through App Review. Also note Meta grants approval to apps its reviewers cannot
+test only for `instagram_basic` and `instagram_manage_comments` — messaging is not on
+that list, so a reviewable web UI with a working login is a hard prerequisite.
+
+### 3.4 SMS: buildable, and the reason not to
 
 Technically routine. Legally and operationally, the worst part of the plan.
 
@@ -219,17 +273,40 @@ class-action exposure in the millions. Related current state of the law:
   *Insurance Marketing Coalition v. FCC* (24 January 2025); the standard reverts to
   pre-2023 prior express written consent. Less onerous than it nearly became — but
   documented written consent is still required.
-- Opt-outs must be honoured within 10 business days (FCC rule effective 11 April 2025).
+- Opt-outs must be honoured by any reasonable method within 10 business days (FCC rule
+  effective 11 April 2025).
 - The "revocation applies to all" rule is delayed to 31 January 2027.
+
+**The platform is not automatically shielded.** In *Connor v. ServiceQuik* (D. Colo.
+2025) the court declined to dismiss the messaging platform Woosender from a TCPA class
+action, where the complaint alleged its involvement went "far beyond merely providing
+the platform" and included "actually setting up and providing intimate support for their
+customers' campaigns." That is a motion-to-dismiss ruling rather than a finding of
+liability, but the reasoning is a roadmap — and note the uncomfortable implication: the
+hands-off, self-serve posture that earns a "we are just the pipes" defence is in direct
+tension with the high-touch onboarding a small SaaS uses to win its first hundred
+customers. You would be choosing between conversion and legal insulation.
+
+**Carrier filtering makes the feature weak even when it is legal.** T-Mobile's Code of
+Conduct prohibits URL cycling and warns that messages using public URL shorteners may be
+blocked. "Your free download is ready" plus a shortened link plus a new domain with no
+sending reputation is close to a worst-case profile. Filtering is silent — no error, no
+bounce — so the failure mode is invisible and lands entirely on your support budget.
 
 Email, by contrast, is governed by CAN-SPAM, which has no private right of action.
 Instagram DM is governed by Meta policy, where the worst case is losing API access.
 
 **Recommendation: ship DM + email. Treat SMS as a later, gated, opt-in module** — and
 only with per-artist 10DLC registration, enforced double opt-in with timestamped and
-IP-logged consent records, automated STOP handling, and a contractual indemnity. A
-one-person company should not casually take on uncapped statutory damages driven by
-customer behaviour it cannot observe.
+IP-logged consent records, platform-enforced STOP suppression from day one, and a
+contractual indemnity. A one-person company should not casually take on uncapped
+statutory damages driven by customer behaviour it cannot observe.
+
+**WhatsApp is the one credible paid broadcast channel**, if a non-US market ever
+justifies it. Meta moved to per-message billing on 1 July 2025; a US marketing template
+runs about **$0.0250** against $0.0034 for utility. That is roughly twelve times the
+cost of an SMS segment and vastly more than email, so it is a deliberate premium
+channel, not a default.
 
 ---
 
@@ -249,17 +326,27 @@ have: the fan has already engaged publicly before you ever message them.
 
 | Player | Position | Threat level |
 | --- | --- | --- |
-| **Laylo** | Direct competitor, music-native, well positioned | **High** — the real fight |
+| **Laylo** | Direct competitor, music-native, well positioned, and holding grandfathered Instagram broadcast access you cannot get | **High** — the real fight |
 | **ManyChat** | Horizontal, huge, funded, profitable | Medium — not music-specific, and retreating from the low end |
 | **Hypeddit / Feature.fm** | Gates and smart links; adding messaging is plausible | Medium — adjacent, could expand into this |
 | **Klaviyo / Attentive / Postscript** | Ecommerce SMS/email at scale | Low — priced and built for merchants, not artists |
 | Beacons, Komi, Linktree | Link-in-bio with light messaging | Low |
-| Community.com, Subtext, SuperPhone | Earlier artist-SMS generation | Low — this cohort largely struggled |
+| **Subtext** | Growing fast; bundled into SoundCloud Artist Pro | **High on price** — see below |
+| Community.com, SuperPhone | Earlier artist-SMS generation | Low — this cohort largely struggled |
 
 That last row deserves weight: artist-to-fan SMS has a graveyard. The economics are
-thin (see §6), the compliance burden is heavy, and artists churn. The survivors —
-Laylo — did it by making SMS one channel among several rather than the whole product.
-Do not read "Laylo is doing fine" as "artist messaging is easy."
+thin (see §6), the compliance burden is heavy, and artists churn. Community.com raised
+roughly $115M and survived only by *ceasing to be a music company*, pivoting to
+enterprise messaging under its third CEO. SuperPhone is eleven years old and still has
+10–20 employees. Laylo survived by making SMS one channel among several rather than the
+whole product. Do not read "Laylo is doing fine" as "artist messaging is easy."
+
+**Subtext is the exception, and it was mis-scored in an earlier draft of this table.**
+It reported 28 million subscribers (+200% YoY), 105% revenue growth and sub-1% churn for
+2025, and SoundCloud bundles it into Artist Pro at **$41.25/month for 10,000 messages** —
+about $0.004 per message, and metered per *message* rather than per SMS segment. That is
+roughly a fifth of Laylo's rate. It is further confirmation of §6's conclusion: **do not
+try to win on SMS price.**
 
 ### 4.3 The displacement event
 
@@ -340,17 +427,25 @@ both can be billed like SMS.
 
 ### 6.1 Per-message margins
 
+Laylo's credit prices below are now confirmed against its live pricing page (rendered
+24 August 2026); an earlier draft of this table used secondary sources and understated
+the SMS figure.
+
 | Channel | Reference price (Laylo) | Marginal cost | Gross margin |
 | --- | --- | --- | --- |
-| **Instagram DM** | ~10 credits ≈ **$0.02** | **$0** — Meta charges no per-message fee for IG/Messenger messaging (unlike WhatsApp, which is per-conversation) | **~100%** |
-| **Email** | $10 / 5,000 = **$0.002** | ~$0.0001 (Amazon SES) | **~95%** |
-| **SMS (US)** | $10 / 650 = **$0.0154** | $0.011–0.013 all-in | **~15–30%** |
+| **Instagram DM** | 10 credits = **$0.02** | **$0** — Meta charges no per-message fee for IG/Messenger messaging (unlike WhatsApp, which is per-conversation) | **~100%** |
+| **Email** | 1 credit = **$0.002** | ~$0.0001 (Amazon SES) | **~95%** |
+| **SMS/RCS (US/CAN)** | 10 credits = **$0.02 per segment** | $0.011–0.013 all-in | **~35–45%** |
 
-This table is the business case. Laylo prices an Instagram DM roughly the same as an
-SMS while paying nothing to send it. SMS — the channel with the legal exposure, the
-registration burden, and the carrier filtering — is also the only one with bad margins.
-Declining to build SMS costs you a checkbox and protects both your margin and your
-balance sheet.
+This table is the business case. Laylo prices an Instagram DM *identically* to an SMS
+segment while paying nothing to send it. SMS — the channel with the legal exposure, the
+registration burden, and the carrier filtering — is also the only one whose costs are
+rising: Klaviyo told investors in its Q2 FY26 filing that gross margin fell about three
+points year over year on "a mix shift toward faster-growing text messaging" and higher
+carrier fees, and that it began passing T-Mobile's increases through to customers in
+Q3 2026. The best-run public company in this space is telling you SMS margin compresses
+over time. Declining to build SMS costs you a checkbox and protects both your margin and
+your balance sheet.
 
 ### 6.2 Fixed monthly costs
 
@@ -395,7 +490,11 @@ before.
 
 - ManyChat: $14 / $29 / $69 / $139 per month by contact count, plus $0.018–$0.10
   per-contact overages, plus a ~$29/mo AI add-on. Free tier is now 25 contacts.
-- Laylo: $25/mo plus metered credits; unlimited contacts; 250 free credits/mo.
+- Laylo: **$25/mo** (or $300/yr) plus metered credits at $0.002 each; **unlimited
+  contacts, no per-subscriber charge at all**; Instagram Comments a **$15/mo** add-on,
+  WhatsApp $450/mo, RCS $1,500/yr. Its free tier exists but publishes no limits — the
+  only figure available, 250 free credits/mo, comes from a help doc written in 2022 and
+  should be treated as stale.
 - Per-active-contact pricing is actively wrong for spiky release campaigns (§2).
 - Instagram DM and email cost nothing meaningful to send, so metered messaging is
   almost pure margin — and a generous free tier is nearly free to provide.
@@ -471,10 +570,11 @@ count.
 - **Positive:** App Review approved on first or second attempt; ManyChat's migration
   displacing more users than expected; a label paying for roster tooling; the file-
   delivery wedge pulling customers on its own.
-- **Negative:** Meta tightening Marketing Messages the way it tightened Messenger in
-  February 2026 (this is the analogue of the SoundCloud risk, and it is real); Laylo
-  shipping gated file delivery; or App Review rejecting the use case outright, which
-  would be a hard stop.
+- **Negative:** Meta narrowing comment-to-DM the way it closed Marketing Messages in
+  September 2025 and deprecated the Messenger version in February 2026 (this is the
+  analogue of the SoundCloud risk, and the track record says it recurs); Laylo shipping
+  gated file delivery; or App Review rejecting the use case outright, which would be a
+  hard stop.
 
 ### The honest caveat
 
@@ -499,9 +599,11 @@ customer indifference — are tested before significant code is written.
    independent of product work, and it is pure waiting. Begin now regardless of what
    else is decided.
 3. **Prototype the loop single-tenant, on your own account.** Comment trigger → private
-   reply → authenticated download → Marketing Messages opt-in → release broadcast. This
-   is also, conveniently, a genuine marketing channel for WOMP, so the work has value
-   even if the SaaS never ships. Standard access on your own account is enough for this.
+   reply → authenticated download → email capture → email broadcast on the next release.
+   This is also, conveniently, a genuine marketing channel for WOMP, so the work has
+   value even if the SaaS never ships. Standard access on your own account is enough for
+   this, and it directly measures the one number that decides the business: what share of
+   fans who comment actually hand over an email.
 4. **Fix the tenancy blockers** (companion doc §2 and §5): ownership checks, per-tenant
    defaults, R2 migration, abuse controls.
 5. **Submit for App Review** with a working product and a careful screencast. Assume one
@@ -519,14 +621,28 @@ the flow actually converts fans in this specific scene.
 
 ## Appendix: sources
 
+Full working for the Meta and messaging-market research is in
+[`fan-messaging-research-2026.md`](fan-messaging-research-2026.md); the Laylo and
+competitor working is in [`laylo-market-research-2026.md`](laylo-market-research-2026.md).
+
 **Meta / Instagram messaging**
 - Messenger Platform and IG Messaging API policy — <https://developers.facebook.com/documentation/business-messaging/messenger-platform/policy>
-- Marketing Messages (recurring notifications) — <https://developers.facebook.com/docs/messenger-platform/marketing-messages/>
+- Marketing Messages — closed to new integrations from 1 Sep 2025; Messenger version deprecated 10 Feb 2026 — <https://developers.facebook.com/docs/messenger-platform/marketing-messages/>
 - Product template for Instagram Messaging (opt-in requests, frequency enums) — <https://developers.facebook.com/docs/messenger-platform/instagram/features/product-template/>
 - `messaging_optins` webhook reference (token lifetimes, stop/resume) — <https://developers.facebook.com/docs/messenger-platform/reference/webhook-events/messaging_optins/>
 - Tech Providers — <https://developers.facebook.com/docs/development/release/tech-providers/>
 - Access Verification — <https://developers.facebook.com/docs/development/release/access-verification/>
 - End of Messenger recurring marketing messages, 10 Feb 2026 — <https://www.socialmediatoday.com/news/metas-recurring-marketing-messages-api-will-end-this-week/811668/>
+
+**Correction made after first draft.** The first version of this document claimed
+Marketing Messages gave a new entrant a compliant path to recurring promotional
+Instagram DMs, based on the descriptive body of Meta's documentation. That was wrong: the
+same page's "Upcoming Changes" banner restricts the feature to existing Partners with
+"No new integrations ... allowed" from 1 September 2025. The conclusion in §3.2 and §3.3
+is the corrected one — Instagram for acquisition, email for broadcast. Note this cut the
+other way from the usual failure mode: third-party blogs were *too pessimistic* about the
+24-hour window and Meta's own prose was misleadingly permissive, so both had to be
+checked against the changelog rather than the overview.
 
 **Competitors**
 - Laylo pricing and channels — <https://laylo.com/music>, <https://apps.shopify.com/laylo>
@@ -537,17 +653,36 @@ the flow actually converts fans in this specific scene.
 **SMS cost and law**
 - Twilio A2P 10DLC compliance and throughput tiers — <https://www.twilio.com/docs/messaging/compliance/a2p-10dlc>
 - Twilio 10DLC brand fees — <https://www.twilio.com/docs/trust-hub/registrations/a2p-10dlc-brand>
+- *Connor v. ServiceQuik* (D. Colo. 2025) — platform not dismissed from a TCPA class action where its role allegedly went "far beyond merely providing the platform"; see `fan-messaging-research-2026.md` for the citation and the contrasting *Dobronski v. WinRed* and *Sheski v. Shopify* outcomes
 - Eleventh Circuit vacates one-to-one consent rule — <https://www.venable.com/insights/publications/2025/01/eleventh-circuit-overrules-fccs-one-to-one>, <https://www.wiley.law/alert-UPDATE-11th-Circuit-Vacates-FCCs-One-to-One-TCPA-Consent-Rule>
 - TCPA damages and current posture — <https://www.huschblackwell.com/newsandinsights/fcc-delaysthen-eleventh-circuit-defenestratesnew-tcpa-requirements-for-prior-express-written-consent>, <https://www.rumberger.com/insights/unwanted-text-messages-causing-a-state-federal-litigation-divide/>
 
+**Resolved since first draft** — see
+[`laylo-market-research-2026.md`](laylo-market-research-2026.md) for the full working:
+- Laylo's per-credit channel costs are now **confirmed** from its live pricing page:
+  $0.002/email, $0.02/IG DM, $0.02 per US SMS segment. The earlier $0.0154/SMS figure
+  came from SEO comparison sites and was too low.
+- Laylo's funding history is now **confirmed** from BusinessWire: two Eldridge-led
+  strategic rounds (July 2021, October 2022) totalling **just over $8M**, with nothing
+  announced since. Aggregator figures ($4.5M on CB Insights, $7.6M on LinkedIn) are
+  inconsistent with the press releases.
+- Laylo's creator-count claims are **irreconcilable** — 20,000 (2023), 10,000 (2026
+  homepage) and 40,000 (CEO bio) are all in circulation simultaneously.
+
 **Unverified / self-reported**
-- Laylo's "10,000+ creators" and "$1B+ in tickets, merch and music" are Laylo marketing
-  claims, not independently confirmed.
-- Laylo's funding history could not be verified and is deliberately omitted.
-- Per-credit channel costs on Laylo ($0.002/email, ~$0.0154/SMS, 10 credits/IG DM) come
-  from Laylo's Shopify App Store listing plus secondary comparison sites; the secondary
-  sites appear to be SEO content and their finer details should be re-checked before
-  use in a model.
+- Laylo's "$1B+ in tickets, merch and music" is a Laylo marketing claim, not
+  independently confirmed, and conflicts with the $325M implied by its own CEO's bio.
+- Laylo's current free-tier limits are published nowhere. Several competitor pages
+  assert per-fan pricing tiers for Laylo; those are fabricated.
 - Several Instagram-limit articles surfaced in research are competitor marketing blogs
   and contradict Meta's own documentation on whether promotional messaging outside 24
   hours is possible. Meta's docs were treated as authoritative throughout.
+- **The widely repeated "Meta cut automated Instagram DMs to 200/hour" claim is
+  fabricated.** It appears in numerous competitor blogs, in neither Meta's rate-limiting
+  documentation nor either changelog, and one publisher has retracted it — the number
+  traces back to an unrelated Messenger formula. Meta publishes no flat hourly DM cap.
+  The real documented ceiling used in §3.3 is ~750 private replies per hour per account.
+- Whether Instagram is a supported surface for the replacement **Marketing Messages on
+  Messenger API** could not be confirmed from any primary source; the product name, the
+  `paid_marketing_messages` review requirement and the 20-country provider restriction
+  all suggest not. Treated here as unavailable.
