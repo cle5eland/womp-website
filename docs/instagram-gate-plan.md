@@ -2,9 +2,9 @@
 
 Status: **proposed, decisions recorded** — this is a design, not a build.
 Prerequisites (email-first identity + honor-system Spotify follow) are
-**implemented** on PR #22 (`cursor/spotify-gate-plan-bf6d`); see
-[`docs/spotify-gate-plan.md`](spotify-gate-plan.md). The SoundCloud gate is
-documented in [`docs/download-gate-plan.md`](download-gate-plan.md).
+**on main** (merged #22); see [`docs/spotify-gate-plan.md`](spotify-gate-plan.md).
+The SoundCloud gate is documented in
+[`docs/download-gate-plan.md`](download-gate-plan.md).
 
 Instagram is another **Open + Attest** step, after SoundCloud and Spotify.
 Meta cannot verify a public “did this visitor follow us?” for a download gate,
@@ -47,19 +47,19 @@ matches Spotify and stops accidental one-click skips.
 
 ---
 
-## 2. Architecture (against the PR #22 codebase)
+## 2. Architecture (against current main)
 
 ### 2.1 Flow
 
 ```
-1. Contact (email-first claim cookie)     ← already shipped on #22
+1. Contact (email-first claim cookie)     ← already on main
 2. SoundCloud connect + API actions       ← if required
 3. Spotify Open + Attest                  ← if required (spotify_follow)
 4. Instagram Open + Attest                ← if required (instagram_follow)
 5. Download
 ```
 
-Cookies stay as on #22 — Instagram adds none:
+Cookies stay as today — Instagram adds none:
 
 ```
 womp_gate_claim     email identity
@@ -68,7 +68,7 @@ womp_gate_fan       SoundCloud access token
 
 ### 2.2 Types
 
-Extend what #22 already has in `lib/gate-types.ts`:
+Extend what main already has in `lib/gate-types.ts`:
 
 ```
 GateActionKind = … | "spotify_follow" | "instagram_follow"
@@ -169,7 +169,7 @@ Instagram panel) — keep it for the Open button so the step is recognizable.
 ### 2.8 Privacy / README
 
 - Privacy: we record that you attested the Instagram follow; we do not connect
-  to Instagram or store a fan Instagram id (parallel to Spotify copy on #22)
+  to Instagram or store a fan Instagram id (parallel to the Spotify privacy copy)
 - README Download gates section: one bullet + link to this doc
 
 ---
@@ -178,7 +178,7 @@ Instagram panel) — keep it for the Open button so the step is recognizable.
 
 | Concern | Rule |
 | --- | --- |
-| Prerequisite | Merge or rebase onto #22 (email-first + Spotify attest) before implementing. |
+| Prerequisite | Done on main (#22). Implement Instagram against current gate types. |
 | Attest UX | Shared `AttestStep`; Instagram is not a second component family. |
 | Step order | Contact → SC → Spotify → Instagram via `GATE_ACTION_KINDS`. |
 | Defaults | Instagram **on** for new gates; Spotify follow **off** until admin enables. |
@@ -188,12 +188,11 @@ Instagram panel) — keep it for the Open button so the step is recognizable.
 
 ## 4. Proposed build order
 
-1. Land / rebase onto **email-first + Spotify follow** (#22).
-2. Migration + `lib/instagram-gate.ts` + types (`instagram_follow`, progress,
+1. Migration + `lib/instagram-gate.ts` + types (`instagram_follow`, progress,
    defaults, `PublicGate` fields).
-3. Store + `applyAction` attest branch for Instagram (copy Spotify path).
-4. Fan UI: generalize `SpotifyStep` → `AttestStep`, wire Instagram.
-5. Admin toggle + handle field; CSV; privacy; README; a small flow test like
+2. Store + `applyAction` attest branch for Instagram (copy Spotify path).
+3. Fan UI: generalize `SpotifyStep` → `AttestStep`, wire Instagram.
+4. Admin toggle + handle field; CSV; privacy; README; a small flow test like
    `lib/gate-flow.test.ts`.
 
 No new Instagram env vars.
@@ -203,8 +202,8 @@ No new Instagram env vars.
 ## Open questions
 
 1. **Existing published gates.** Recommendation: leave `false` after
-   migration; only new gates default on. (Email-first on #22 already applies
-   to all gates; Instagram requirement is separate.)
+   migration; only new gates default on. (Email-first already applies to all
+   gates; Instagram requirement is separate.)
 2. **Generalize vs copy `SpotifyStep`.** Recommendation: **generalize** in the
    same PR that adds Instagram so a third attest provider does not fork UI.
 3. **Display name.** Store only handle, or also a freeform label? Recommendation:
