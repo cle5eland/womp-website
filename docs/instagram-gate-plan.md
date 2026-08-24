@@ -164,7 +164,7 @@ Instagram panel) — keep it for the Open button so the step is recognizable.
 
 - Create/edit: checkbox “Follow on Instagram” (default checked on create)
 - Optional handle / profile URL field; empty = `@wompbass`
-- Relabel already done for SoundCloud (“Follow on SoundCloud”) on #22
+- Relabel already done for SoundCloud (“Follow on SoundCloud”) on main
 
 ### 2.8 Privacy / README
 
