@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 
 import { SoundcloudIcon } from "@/components/platform-icons";
 import {
@@ -13,7 +13,8 @@ import {
   type GateViewState,
   MAX_COMMENT_LENGTH,
   MIN_COMMENT_LENGTH,
-  requiredActions,
+  gateStepCounts,
+  incompleteStep,
 } from "@/lib/gate-types";
 
 /**
@@ -54,10 +55,8 @@ export function GateExperience({
   const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false);
 
-  const steps = useMemo(
-    () => requiredActions(gate.requirements),
-    [gate.requirements],
-  );
+  const currentStep = incompleteStep(gate.requirements, progress);
+  const counts = gateStepCounts(gate.requirements, progress);
 
   const connectHref = `/api/gate/${encodeURIComponent(gate.slug)}/connect`;
 
@@ -108,15 +107,13 @@ export function GateExperience({
 
   async function submitContact(event: React.FormEvent) {
     event.preventDefault();
+    if (!consent) return;
     await post(
       `/api/gate/${encodeURIComponent(gate.slug)}/claim`,
-      { firstName, email, marketingConsent: consent },
+      { firstName, email, marketingConsent: true },
       "claim",
     );
   }
-
-  const contactDone = Boolean(progress.emailCapturedAt);
-  const actionsDone = steps.every((kind) => progress[kind] !== null);
 
   return (
     <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-2xl flex-col px-5 py-12 sm:px-8 sm:py-16">
@@ -136,11 +133,6 @@ export function GateExperience({
         <h2 className="font-display mt-2 text-4xl leading-none text-white sm:text-5xl">
           {gate.title}
         </h2>
-        {gate.description ? (
-          <p className="mt-4 text-sm leading-relaxed text-zinc-400">
-            {gate.description}
-          </p>
-        ) : null}
       </section>
 
       {error ? (
@@ -164,41 +156,47 @@ export function GateExperience({
             profileUrl={fan.permalinkUrl}
           />
 
-          <ol className="mt-8 space-y-3">
-            {steps.map((kind, index) => (
-              <StepRow
-                key={kind}
-                index={index + 1}
-                kind={kind}
-                doneAt={progress[kind]}
-                busy={busy === kind}
-                disabled={busy !== null}
-                comment={comment}
-                onComment={setComment}
-                onRun={() => runAction(kind)}
-              />
-            ))}
-
-            <ContactStep
-              index={steps.length + 1}
-              done={contactDone}
-              busy={busy === "claim"}
-              disabled={busy !== null || !actionsDone}
-              firstName={firstName}
-              email={email}
-              consent={consent}
-              onFirstName={setFirstName}
-              onEmail={setEmail}
-              onConsent={setConsent}
-              onSubmit={submitContact}
-            />
-          </ol>
-
-          <DownloadPanel
-            slug={gate.slug}
-            unlocked={unlocked}
-            filename={gate.deliveryFilename}
-          />
+          {unlocked || currentStep === null ? (
+            <ThankYou slug={gate.slug} filename={gate.deliveryFilename} />
+          ) : (
+            <>
+              <ProgressTracker done={counts.done} total={counts.total} />
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentStep}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  {currentStep === "contact" ? (
+                    <ContactStep
+                      index={counts.done + 1}
+                      busy={busy === "claim"}
+                      disabled={busy !== null}
+                      firstName={firstName}
+                      email={email}
+                      consent={consent}
+                      onFirstName={setFirstName}
+                      onEmail={setEmail}
+                      onConsent={setConsent}
+                      onSubmit={submitContact}
+                    />
+                  ) : (
+                    <StepRow
+                      index={counts.done + 1}
+                      kind={currentStep}
+                      busy={busy === currentStep}
+                      disabled={busy !== null}
+                      comment={comment}
+                      onComment={setComment}
+                      onRun={() => runAction(currentStep)}
+                    />
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </>
+          )}
         </>
       )}
 
@@ -362,42 +360,62 @@ function ConnectedAs({
   );
 }
 
+function ProgressTracker({ done, total }: { done: number; total: number }) {
+  const left = Math.max(0, total - done);
+  const current = Math.min(done + 1, total);
+
+  return (
+    <div
+      className="mt-8"
+      role="status"
+      aria-label={`Step ${current} of ${total}. ${done} done, ${left} left.`}
+    >
+      <div className="flex items-baseline justify-between gap-4">
+        <p className="text-[10px] font-medium uppercase tracking-[0.3em] text-zinc-500">
+          Step {current} of {total}
+        </p>
+        <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-600">
+          {done} done · {left} left
+        </p>
+      </div>
+      <div className="mt-3 flex gap-1.5" aria-hidden>
+        {Array.from({ length: total }, (_, index) => (
+          <span
+            key={index}
+            className={
+              "h-1 flex-1 " +
+              (index < done
+                ? "bg-[color:var(--accent)]"
+                : index === done
+                  ? "bg-[color:var(--accent)]/40"
+                  : "bg-white/10")
+            }
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function StepShell({
   index,
   title,
   helper,
-  done,
   children,
 }: {
   index: number;
   title: string;
   helper: string;
-  done: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <motion.li
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.04 }}
-      className={
-        "border p-4 sm:p-5 " +
-        (done
-          ? "border-[color:var(--accent)]/30 bg-[color:var(--accent)]/[0.04]"
-          : "border-white/[0.09] bg-black/40")
-      }
-    >
+    <div className="mt-6 border border-white/[0.09] bg-black/40 p-4 sm:p-5">
       <div className="flex items-start gap-4">
         <span
           aria-hidden
-          className={
-            "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center text-[11px] font-semibold " +
-            (done
-              ? "bg-[color:var(--accent)] text-black"
-              : "border border-white/15 text-zinc-500")
-          }
+          className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-white/15 text-[11px] font-semibold text-zinc-500"
         >
-          {done ? "✓" : index}
+          {index}
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-white">{title}</p>
@@ -407,7 +425,7 @@ function StepShell({
           <div className="mt-3">{children}</div>
         </div>
       </div>
-    </motion.li>
+    </div>
   );
 }
 
@@ -436,24 +454,9 @@ function ActionButton({
   );
 }
 
-function DoneBadge({ label, at }: { label: string; at: string }) {
-  return (
-    <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-[color:var(--accent)]">
-      {label}
-      <span className="ml-2 tracking-normal text-zinc-600 normal-case">
-        {new Date(at).toLocaleDateString(undefined, {
-          month: "short",
-          day: "numeric",
-        })}
-      </span>
-    </p>
-  );
-}
-
 function StepRow({
   index,
   kind,
-  doneAt,
   busy,
   disabled,
   comment,
@@ -462,7 +465,6 @@ function StepRow({
 }: {
   index: number;
   kind: GateActionKind;
-  doneAt: string | null;
   busy: boolean;
   disabled: boolean;
   comment: string;
@@ -470,18 +472,10 @@ function StepRow({
   onRun: () => void;
 }) {
   const copy = GATE_ACTION_LABELS[kind];
-  const done = doneAt !== null;
 
   return (
-    <StepShell
-      index={index}
-      title={copy.title}
-      helper={copy.helper}
-      done={done}
-    >
-      {done ? (
-        <DoneBadge label={copy.done} at={doneAt} />
-      ) : kind === "comment" ? (
+    <StepShell index={index} title={copy.title} helper={copy.helper}>
+      {kind === "comment" ? (
         <div className="space-y-2">
           <textarea
             value={comment}
@@ -516,7 +510,6 @@ function StepRow({
 
 function ContactStep({
   index,
-  done,
   busy,
   disabled,
   firstName,
@@ -528,7 +521,6 @@ function ContactStep({
   onSubmit,
 }: {
   index: number;
-  done: boolean;
   busy: boolean;
   disabled: boolean;
   firstName: string;
@@ -542,101 +534,79 @@ function ContactStep({
   return (
     <StepShell
       index={index}
-      title="Where should the download go?"
-      helper="First name and email. We use it to send you the link and the occasional release."
-      done={done}
+      title="Where should we send this?"
+      helper="First name and email. Joining the email list is required to download — unsubscribe any time."
     >
-      {done ? (
-        <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-[color:var(--accent)]">
-          Details saved
-        </p>
-      ) : (
-        <form onSubmit={onSubmit} className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input
-              type="text"
-              value={firstName}
-              onChange={(event) => onFirstName(event.target.value)}
-              placeholder="First name"
-              aria-label="First name"
-              autoComplete="given-name"
-              maxLength={100}
-              required
-              className="w-full border border-white/12 bg-black/60 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-[color:var(--accent)]/60 focus:outline-none"
-            />
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => onEmail(event.target.value)}
-              placeholder="you@email.com"
-              aria-label="Email address"
-              autoComplete="email"
-              maxLength={254}
-              required
-              className="w-full border border-white/12 bg-black/60 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-[color:var(--accent)]/60 focus:outline-none"
-            />
-          </div>
-          <label className="flex cursor-pointer items-start gap-2.5 text-[10px] leading-relaxed text-zinc-500">
-            <input
-              type="checkbox"
-              checked={consent}
-              onChange={(event) => onConsent(event.target.checked)}
-              className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[color:var(--accent)]"
-            />
-            <span>
-              Email me about new music and shows. Optional, and you can
-              unsubscribe any time.
-            </span>
-          </label>
-          <ActionButton type="submit" busy={busy} disabled={disabled}>
-            Save &amp; unlock
-          </ActionButton>
-          {disabled && !busy ? (
-            <p className="text-[10px] text-zinc-600">
-              Finish the steps above first.
-            </p>
-          ) : null}
-        </form>
-      )}
+      <form onSubmit={onSubmit} className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <input
+            type="text"
+            value={firstName}
+            onChange={(event) => onFirstName(event.target.value)}
+            placeholder="First name"
+            aria-label="First name"
+            autoComplete="given-name"
+            maxLength={100}
+            required
+            className="w-full border border-white/12 bg-black/60 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-[color:var(--accent)]/60 focus:outline-none"
+          />
+          <input
+            type="email"
+            value={email}
+            onChange={(event) => onEmail(event.target.value)}
+            placeholder="you@email.com"
+            aria-label="Email address"
+            autoComplete="email"
+            maxLength={254}
+            required
+            className="w-full border border-white/12 bg-black/60 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-[color:var(--accent)]/60 focus:outline-none"
+          />
+        </div>
+        <label className="flex cursor-pointer items-start gap-2.5 text-[10px] leading-relaxed text-zinc-500">
+          <input
+            type="checkbox"
+            checked={consent}
+            onChange={(event) => onConsent(event.target.checked)}
+            required
+            className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[color:var(--accent)]"
+          />
+          <span>
+            Email me about new music and shows. Required to download —
+            unsubscribe any time.
+          </span>
+        </label>
+        <ActionButton type="submit" busy={busy} disabled={disabled || !consent}>
+          Unlock download
+        </ActionButton>
+      </form>
     </StepShell>
   );
 }
 
-function DownloadPanel({
+function ThankYou({
   slug,
-  unlocked,
   filename,
 }: {
   slug: string;
-  unlocked: boolean;
   filename: string | null;
 }) {
-  if (!unlocked) {
-    return (
-      <div className="mt-8 border border-white/[0.09] bg-black/40 px-5 py-6 text-center">
-        <p className="text-[10px] font-medium uppercase tracking-[0.3em] text-zinc-600">
-          Download locked
-        </p>
-        <p className="mt-2 text-xs text-zinc-500">
-          Complete every step to unlock the file.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      className="glow-box mt-8 border border-[color:var(--accent)]/40 bg-[color:var(--accent)]/[0.06] px-5 py-6 text-center"
+      className="glow-box mt-8 border border-[color:var(--accent)]/40 bg-[color:var(--accent)]/[0.06] px-5 py-10 text-center"
     >
       <p className="text-[10px] font-medium uppercase tracking-[0.3em] text-[color:var(--accent)]">
         Unlocked
       </p>
+      <h3 className="font-display mt-3 text-3xl leading-none text-white sm:text-4xl">
+        Thank you for the support
+      </h3>
+      <p className="mt-3 text-sm text-zinc-400">Your download is ready.</p>
       <a
         href={`/api/gate/${encodeURIComponent(slug)}/download`}
-        className="font-display mt-3 inline-block bg-[color:var(--accent)] px-8 py-3 text-2xl leading-none text-black transition hover:brightness-110"
+        className="font-display mt-6 inline-block bg-[color:var(--accent)] px-8 py-3 text-2xl leading-none text-black transition hover:brightness-110"
       >
         Download
       </a>

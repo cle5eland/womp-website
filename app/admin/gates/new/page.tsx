@@ -24,9 +24,10 @@ export default async function NewGatePage() {
         New gate
       </h1>
       <p className="mt-3 max-w-xl text-xs leading-relaxed text-zinc-500">
-        Paste the SoundCloud track URL and pick a URL slug. The track title,
-        artwork and artist are read from SoundCloud. The gate is created as a
-        draft — attach the download file on the next screen, then publish.
+        Paste the SoundCloud track URL and pick a URL slug. The headline
+        defaults to the track title; artwork and artist are also read from
+        SoundCloud. The gate is created as a draft — attach the download file
+        on the next screen, then publish.
       </p>
 
       <AdminGateCreateForm />

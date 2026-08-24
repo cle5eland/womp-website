@@ -23,8 +23,6 @@ export function AdminGateCreateForm() {
 
   const [soundcloudUrl, setSoundcloudUrl] = useState("");
   const [slug, setSlug] = useState("");
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
   const [requirements, setRequirements] =
     useState<GateRequirements>(ALL_REQUIRED);
   const [busy, setBusy] = useState(false);
@@ -45,8 +43,6 @@ export function AdminGateCreateForm() {
         body: JSON.stringify({
           soundcloudUrl,
           slug: normalizeSlug(slug),
-          title,
-          description,
           requirements,
         }),
       });
@@ -91,25 +87,6 @@ export function AdminGateCreateForm() {
           onChange={(event) => setSlug(event.target.value)}
           placeholder="midnight-vip"
           required
-          className={inputClass}
-        />
-      </Field>
-
-      <Field label="Headline" hint="Optional — defaults to the track title.">
-        <input
-          type="text"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="Midnight VIP — free download"
-          className={inputClass}
-        />
-      </Field>
-
-      <Field label="Description" hint="Optional. Shown under the headline.">
-        <textarea
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-          rows={3}
           className={inputClass}
         />
       </Field>

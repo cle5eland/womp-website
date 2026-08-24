@@ -305,6 +305,13 @@ export async function applyContact(input: {
   if (!EMAIL_PATTERN.test(email) || email.length > 254) {
     return { ok: false, status: 400, error: "Enter a valid email address." };
   }
+  if (!input.marketingConsent) {
+    return {
+      ok: false,
+      status: 400,
+      error: "Join the email list to unlock the download.",
+    };
+  }
 
   const gate = await getPublishedGateBySlug(slug);
   if (!gate) return { ok: false, status: 404, error: "Gate not found." };

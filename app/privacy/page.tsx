@@ -59,8 +59,9 @@ export default function PrivacyPage() {
                 follow — and a count of how many times you downloaded the file.
               </Item>
               <Item>
-                Whether you ticked the box asking for occasional emails about new
-                music.
+                Your agreement to receive occasional emails about new music and
+                shows, which is required to complete a download. You can
+                unsubscribe any time.
               </Item>
             </ul>
           </Section>
@@ -100,7 +101,8 @@ export default function PrivacyPage() {
               If you start a download and do not finish, the partial record is
               deleted automatically after 30 days. If you complete a download, we
               keep the record so you can come back and download the file again,
-              and so we can email you if you asked us to.
+              and so we can email you about new music. You can unsubscribe any
+              time.
             </p>
           </Section>
 
