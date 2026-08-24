@@ -24,6 +24,14 @@ import {
 
 type Row = Record<string, unknown>;
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Guards hand-typed or route-param ids so a malformed value 404s instead of throwing a Postgres syntax error. */
+function isUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
 function asIso(value: unknown): string | null {
   if (value instanceof Date) return value.toISOString();
   if (typeof value === "string" && value.length > 0) {
@@ -221,6 +229,7 @@ export async function getPublishedGateBySlug(
 }
 
 export async function getGateById(id: string): Promise<GateRecord | null> {
+  if (!isUuid(id)) return null;
   const db = requireDb();
   const rows = await db`select * from gates where id = ${id} limit 1`;
   return rows.length > 0 ? mapGate(rows[0]) : null;
