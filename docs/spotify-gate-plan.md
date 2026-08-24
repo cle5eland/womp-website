@@ -1,16 +1,33 @@
-# Spotify Download-Gate Step — Design Plan
+# Spotify Download-Gate Steps — Design Plan
 
-Status: **proposed** — this is a design, not a build. Decisions that still need
-a call live in [Open questions](#open-questions). The SoundCloud gate this
-extends is documented in [`docs/download-gate-plan.md`](download-gate-plan.md).
+Status: **proposed, decisions recorded** — this is a design, not a build. The
+SoundCloud gate this extends is documented in
+[`docs/download-gate-plan.md`](download-gate-plan.md).
 
-A download gate today is a SoundCloud-shaped page: the fan connects SoundCloud,
-completes like / repost / comment / follow as separate clicks, leaves a name
-and email, and gets an artist-hosted file. This plan adds **Spotify as a second
-provider**, starting with one step — follow the artist — via a real Spotify app
-connection (Authorization Code + PKCE), structured so later Spotify steps
-(save a track, follow a playlist, save an album) are new action kinds rather
-than a second architecture.
+A download gate today is SoundCloud-shaped: the fan connects SoundCloud,
+completes like / repost / comment / follow as separate clicks, then leaves a
+name and email. This plan does two things that have to land together:
+
+1. **Email becomes the identity**, and the first step, so a returning fan is
+   recognised by address rather than by whichever platform they connected.
+2. **Spotify becomes a second provider** on the same gate, starting with follow
+   the artist, with save-track / save-album / follow-playlist as the same
+   pattern and pre-save as a later exception.
+
+---
+
+## Decisions
+
+| Question | Decision |
+| --- | --- |
+| Spotify app quota | **Development Mode today.** Extended Quota is a partner application, not a dashboard toggle — see [§2](#2-leaving-development-mode). Public verified follows will 403 for anyone not on the 5-user allowlist until that changes. |
+| Follow / save target | **Default WOMP's artist profile** (`SPOTIFY_ARTIST_ID` / `64XV9aZxwoLuxf9tgvu9Pb`). Admin can paste a different Spotify artist, track, album, or playlist URL per gate. |
+| Identity | **Email.** First name + email + list opt-in is step 1 on every gate. Unlock rows key on `(gate_id, lower(email))`. Platform connections attach to that row. |
+| Connect vs action | **Two clicks.** OAuth callback never follows or saves. Each Spotify write is its own button. |
+| New-gate default | Spotify checkboxes **off** until the OAuth path is proven with an allowlisted account. |
+| Later Spotify kinds | Follow artist (v1), then **save a track, save an album, follow a playlist**. **Pre-save** is a later phase because it has to persist refresh tokens. |
+| Tokens (immediate steps) | Encrypted cookie only, ~1 hour, never written to Postgres. Same rule as SoundCloud. |
+| Honor-system fallback | **Still open** — see [Open questions](#open-questions). |
 
 ---
 
@@ -18,298 +35,347 @@ than a second architecture.
 
 The site already talks to Spotify, but only with an **app-level Client
 Credentials** token (`lib/spotify.ts`) used for the public artist profile and
-stats. Following an artist is a **user** write. It needs an Authorization Code
+stats. Follow and save are **user** writes. They need an Authorization Code
 token minted for the fan, the same split SoundCloud already has between
 `lib/soundcloud-auth.ts` (app token) and `lib/soundcloud-user-auth.ts` (fan
 token).
 
-### Follow, as of 2026
+### Library writes, as of 2026
 
-Spotify collapsed the old per-type follow/save endpoints. For a **Development
-Mode** app (which this project's dashboard app almost certainly is):
+Spotify collapsed the old per-type follow/save endpoints. For a Development
+Mode app (this one):
 
-| Action | Endpoint | Scope | Success |
-| ------ | -------- | ----- | ------- |
-| Follow artist | `PUT /v1/me/library?uris=spotify:artist:{id}` | `user-follow-modify` | `200` |
-| Already following? | `GET /v1/me/library/contains?uris=spotify:artist:{id}` | `user-follow-read` | `200` → `[true]` |
-| Identity | `GET /v1/me` | none beyond the grant | `200` |
-| Resolve artist URL | `GET /v1/artists/{id}` | app token is enough | `200` |
+| Action | URI | Scope | Endpoint |
+| ------ | --- | ----- | -------- |
+| Follow artist | `spotify:artist:{id}` | `user-follow-modify` | `PUT /v1/me/library` |
+| Follow playlist | `spotify:playlist:{id}` | `playlist-modify-public` | `PUT /v1/me/library` |
+| Save track | `spotify:track:{id}` | `user-library-modify` | `PUT /v1/me/library` |
+| Save album | `spotify:album:{id}` | `user-library-modify` | `PUT /v1/me/library` |
+| Already done? | same URI | matching `*-read` scope | `GET /v1/me/library/contains` |
+| Identity | — | none extra | `GET /v1/me` |
+| Resolve a pasted URL | `open.spotify.com/{type}/{id}` | app token | `GET /v1/{type}s/{id}` |
 
 The older `PUT /v1/me/following?type=artist` is **deprecated and removed for
 Development Mode apps** (February / March 2026). Extended Quota apps still have
-it. The implementation should call `/me/library` first and only fall back to
-`/me/following` if the library call 400s, so we work in both modes.
+it. Call `/me/library` first; fall back to `/me/following` only if the library
+call 400s.
 
 Caveat: the published `/me/library` reference lists `spotify:user:{id}` and
 `spotify:playlist:{id}` as followable URIs, and `GET /me/library/contains`
 explicitly lists `spotify:artist:{id}`, but the save-items page omits artist
 from its "supported URI types" list even though the official migration guide's
-example uses `spotify:artist:…`. That mismatch should be verified with a real
-token before we lock the write path. If artist URIs 400 on `PUT /me/library`,
-the fallback is the deprecated follow endpoint (Extended Quota only) or we
-re-scope v1 to "follow the Spotify *user*" (`spotify:user:{id}`) — see
-questions.
+example uses `spotify:artist:…`. Verify artist URIs with a real token before
+locking the write path.
 
-Follow / save is effectively **idempotent**. Repeating it on an already-followed
-artist should succeed; we still check `contains` first so we can credit a fan
-who already follows without a write, matching how SoundCloud treats an
-already-liked track.
+All of these writes are effectively **idempotent**. Check `contains` first so a
+fan who already follows / saved is credited without a write.
 
 ### Auth mechanics
 
 - Authorize `https://accounts.spotify.com/authorize`, token
   `https://accounts.spotify.com/api/token`.
-- Authorization Code **with PKCE** (`S256`). We already have the client secret
-  (`SPOTIFY_CLIENT_SECRET`); send both, same as SoundCloud. Token exchange stays
-  server-side.
+- Authorization Code **with PKCE** (`S256`). We already have the client secret;
+  send both, same as SoundCloud. Token exchange stays server-side.
 - Access tokens live ~1 hour. Refresh tokens exist and are **reusable** (unlike
-  SoundCloud's single-use refresh). We still should **not persist** them: a gate
-  run is under a minute, and download entitlement lives on our unlock row. If
-  the token expires mid-flow, the fan reconnects.
+  SoundCloud's single-use refresh). Immediate steps still must not persist
+  them. Pre-save is the exception, below.
 - API calls use `Authorization: Bearer <token>` (not SoundCloud's `OAuth`).
-- **Multiple redirect URIs are allowed.** This is the one operational fact that
-  is *better* than SoundCloud. Production and `http://127.0.0.1:<port>/…` can
-  both be registered on the same app. (`localhost` as a hostname is not
-  allowed; loopback IPs are.)
+- **Multiple redirect URIs are allowed.** Production and
+  `http://127.0.0.1:<port>/api/spotify/callback` can both be registered.
+  (`localhost` as a hostname is not allowed; loopback IPs are.)
 
-v1 scopes, deliberately small:
+v1 scopes, only what follow needs:
 
-- `user-follow-modify` — perform the follow
-- `user-follow-read` — treat "already following" as done
-- Identity from `GET /me` does not need extra scopes. Do **not** request
-  `user-read-email`; we already collect email on the contact step, and
-  Development Mode stripped `email` off `/me` anyway.
+- `user-follow-modify` / `user-follow-read`
 
-Later steps reuse this grant by adding scopes at connect time
-(`user-library-modify` / `user-library-read` for save-track / save-album,
-`playlist-modify-public` for follow-playlist). Spotify re-prompts when the
-scope set grows, so starting narrow is the right default.
+When a gate also requires save-track / save-album / follow-playlist, the
+connect URL requests the union of scopes for **that gate's remaining Spotify
+steps**. Spotify re-prompts when the set grows, so we do not ask for library
+or playlist scopes on a follow-only gate. Do **not** request `user-read-email`;
+we collect email ourselves.
 
 ### What we already have
 
-`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, and `SPOTIFY_ARTIST_ID`
-(`64XV9aZxwoLuxf9tgvu9Pb`) are already used for the public profile. The same
-app can add a user-auth redirect URI; we do not need a second Client ID unless
-we want to isolate stats from fan grants. Quota, however, is now counted per
-**developer account**, not per Client ID, so a second app does not dodge the
-limit below.
+`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, and `SPOTIFY_ARTIST_ID` are
+already used for the public profile. The same app adds a user-auth redirect
+URI. A second Client ID does not help: quota is counted per **developer
+account**.
+
+### Pre-save is a different product
+
+Spotify has no pre-save endpoint. Third-party pre-save is:
+
+1. Fan grants `user-library-modify`.
+2. **We store the refresh token** until release day.
+3. A cron saves `spotify:album:{id}` or `spotify:track:{id}` once the URI is
+   live.
+
+That breaks the gate's "fan tokens never hit the database" rule, which is why
+it is not v1. Immediate "save this album / track" (URI already live) does not
+need persistence and can ship with follow-playlist in the phase after v1.
+Pre-save is phase 3: encrypted refresh tokens on the unlock row, a release-at
+timestamp, a cron, and a privacy-policy change.
 
 ---
 
-## 2. The constraint that may block a public gate
+## 2. Leaving Development Mode
 
-SoundCloud's hard constraint was "one redirect URI." Spotify's is **quota
-mode.**
+There is no "switch to production" button. Non-dev is **Extended Quota Mode**.
+As of May 15, 2025 Spotify only takes new requests from organisations, and the
+bar is written for a launched commercial product, not an artist site.
 
-Newly created and migrated Development Mode apps:
+### What the allowlist actually does
 
-- App owner must have **Spotify Premium** or the app stops working.
-- **5 authenticated Spotify users**, each added by email on the dashboard
-  allowlist. Anyone else can complete OAuth and then every API call returns
-  **403**.
-- Extended Quota Mode (unlimited fans, higher rate limits) is applied for as a
-  registered organisation, through a company email, and the published bar
-  includes **≥ 250k monthly active users** plus a launched commercial service.
-  Review can take up to six weeks. An artist site will not meet that bar.
+Development Mode (this app, today):
 
-Client Credentials reads (the EPK stats panel) are unaffected. The allowlist
-only bites **user-authenticated** calls, which is exactly the follow step.
+- The **app owner needs Spotify Premium** or the app stops working.
+- **5 authenticated Spotify users**, each added by email under Dashboard →
+  the app → Settings → Users Management. Anyone else can finish OAuth; every
+  follow/save call then returns **403**.
+- Client Credentials reads (the EPK stats panel) are unaffected. The allowlist
+  only bites **user-authenticated** writes, which is the whole gate step.
 
-So: the architecture below is the correct one, and it will work for allowlisted
-testers. It will **not** work for arbitrary fans until Spotify grants Extended
-Quota, which they are unlikely to. That is the decision this plan cannot make
-on its own — see Q1.
+### The official path
 
-Honor-system fallback, if we need a public step without quota: a button that
-opens `https://open.spotify.com/artist/{id}` (or the `spotify:` URI) and a
-second "I followed" confirm. We cannot verify. That is not an "app connection"
-and is a different product. Worth having as a documented escape hatch, not as
-the default design.
+Two hops. The in-dashboard "Quota extension Request" tab is the second hop and
+often does not appear until the first is approved.
+
+1. **Partner Application**, from a **company email**, via the form linked from
+   [Quota modes](https://developer.spotify.com/documentation/web-api/concepts/quota-modes)
+   (Google Form). Spotify's published requirements:
+   - Legally registered business or organisation
+   - An active, launched service
+   - **At least 250k monthly active users**, with analytics export ≤ 30 days old
+   - Available in key Spotify markets
+   - Commercial viability (they have asked for 12 months of revenue proof)
+   - Adherence to the Developer Terms
+2. If that is approved: Developer Dashboard → the app → Settings → **Quota
+   extension Request** → four-step questionnaire → Submit. Review can take up
+   to six weeks. They will email the address on the Spotify account.
+
+Criteria and rationale:
+[Updating the Criteria for Web API Extended Access](https://developer.spotify.com/blog/2025-04-15-updating-the-criteria-for-web-api-extended-access)
+(April 15, 2025). Existing Extended Quota apps were grandfathered; new ones
+are not.
+
+### Honest read for djwomp.com
+
+This site will not meet the 250k MAU / launched-commercial-service bar. Filing
+the form is allowed; expecting a yes is not. A second app or a new Client ID
+does not dodge the cap.
+
+Practical options while stuck in Development Mode:
+
+- **Allowlisted testers only.** You plus a few people on Users Management.
+  The real OAuth + Follow path works for them. Public checkbox stays off.
+- **Honor-system fallback for everyone else.** "Open Spotify → follow/save
+  there → confirm." We cannot verify. Not an app connection. Still open,
+  because without it a public Spotify step is dead on arrival.
+- **Do not ship the Spotify step to production fans** until quota changes.
+
+Build the real OAuth either way so the day quota (or an allowlisted drop)
+exists, the verified path is ready.
 
 ### Terms, same class of issue as SoundCloud comments
 
-Spotify's Developer Policy, "Artificial manipulation":
+Spotify Developer Policy, "Artificial manipulation":
 
 > Don't artificially increase, or claim to artificially increase, play counts,
 > follow counts or otherwise manipulate the Spotify Service. This includes:
 > (i) using any bot, script or automated process; (ii) by providing any
 > compensation (financial or otherwise); and (iii) any other means.
 
-A download in exchange for a follow is compensation-in-kind. Hypeddit / Gleam /
-Feature.fm still ship this, and we already run the same pattern on SoundCloud
-(where the terms at least carve out user-initiated likes/follows). Exposure is
-concentrated on this app's credentials: worst realistic case is quota denial
-or app revocation, not a fan-data breach.
+A download in exchange for a follow is compensation-in-kind. Same exposure
+class as the required SoundCloud comment: credentials revoked or quota denied.
+Mitigations that match the existing gate:
 
-Mitigations that match the SoundCloud gate's posture:
-
-1. **One explicit Follow click** after connect. Connecting must not follow as a
-   side effect of the grant. No bulk "do everything" control.
-2. Credit "already following" via `contains` rather than forcing a write.
-3. Keep scopes minimal and say so on `/privacy`.
+1. One explicit click per write. Connect must not follow or save.
+2. Credit already-done via `contains`.
+3. Minimal scopes, described on `/privacy`.
 4. Never touch Spotify audio; the deliverable stays an artist-supplied file.
-   Same hard boundary as SoundCloud §2(c).
 
 ---
 
 ## 3. Architecture
 
-### 3.1 Provider-tagged steps, not a second gate type
+### 3.1 Email is the identity, and it is step 1
 
-Today `GateActionKind` is `"like" | "repost" | "comment" | "follow"` and all
-four are SoundCloud. The follow target is the SoundCloud track's uploader
-(`artist_user_urn`). Spotify follow cannot be inferred from that track.
+This is a gate-wide change, not a Spotify-only one. It applies to existing
+SoundCloud-only gates as soon as it ships.
 
-Proposal: extend the existing kind union rather than introducing a parallel
-requirements object.
+Today unlocks are unique on `(gate_id, soundcloud_user_urn)`, email is collected
+last, and `authorizeDownload` requires a live SoundCloud session. After this:
+
+```
+1. First name + email + list opt-in     ← creates / resumes the unlock row
+2. SoundCloud connect + required SC actions
+3. Spotify connect + required Spotify actions
+4. Download
+```
+
+`incompleteStep` flips so `contact` is first, not last. `isUnlocked` stays
+"email captured AND every required action has a timestamp" — email is just no
+longer the last conjunct.
+
+**Claim cookie** `womp_gate_claim`: sealed email + gate id + unlock id,
+HttpOnly / Secure / SameSite=Lax, lifetime on the order of 30 days (aligned
+with incomplete-row retention). This is who the browser is. SoundCloud and
+Spotify cookies become **capability** cookies only.
+
+```
+womp_gate_claim     email identity (new)
+womp_gate_fan       SoundCloud access token (unchanged shape)
+womp_gate_spotify   Spotify access token (new)
+```
+
+Returning fan:
+
+- Cookie still valid → skip the form, land on the next incomplete step or the
+  download. No need to reconnect SoundCloud or Spotify if the row is already
+  unlocked.
+- Cookie gone → type the same email again, resume. Unverified, same as today
+  (we already accept whatever address they type). Magic-link verification is
+  a later hardening, not v1.
+
+Download authorization keys off the claim cookie, not a platform session. A
+fan who earned the file last week can re-enter their email and download
+without OAuth.
+
+### 3.2 Data model
+
+Additive migration. `soundcloud_user_urn` becomes nullable (the row now exists
+before Connect with SoundCloud). Email is required once step 1 completes.
+
+```
+gate_unlocks
+  email                    text not null after step 1
+  first_name               text not null after step 1
+  soundcloud_user_urn      text null          -- set when they connect SC
+  soundcloud_username      text null
+  spotify_user_id          text null
+  spotify_display_name     text null
+
+  unique (gate_id, lower(email))                              -- identity
+  unique (gate_id, soundcloud_user_urn) where urn is not null -- one SC per gate
+  unique (gate_id, spotify_user_id) where id is not null      -- one Spotify per gate
+```
+
+Normalise email on write (`trim` + lowercase). The SoundCloud unique keeps a
+fan from farming two emails with one SC account on the same gate.
+
+Existing incomplete rows (SC connected, no email yet): they still have a URN.
+When they next load the gate, show step 1; `captureContact` fills the row
+instead of inserting. If they type an email that already exists on this gate,
+resume that row rather than duplicating.
+
+### 3.3 Provider-tagged steps
 
 ```
 GateActionKind =
-  "like" | "repost" | "comment" | "follow"   // SoundCloud, unchanged
-  | "spotify_follow"                        // v1
-  // later: "spotify_save_track" | "spotify_follow_playlist" | "spotify_save_album"
+  "like" | "repost" | "comment" | "follow"     // SoundCloud
+  | "spotify_follow"                           // v1
+  | "spotify_follow_playlist"                  // phase 2
+  | "spotify_save_track"
+  | "spotify_save_album"
+  // phase 3: "spotify_presave"
 ```
-
-`incompleteStep`, `requiredActions`, admin checkboxes, and
-`POST /api/gate/[slug]/action` keep working. A kind maps to a provider:
 
 ```
 actionProvider(kind) → "soundcloud" | "spotify"
 ```
 
-Adding the next Spotify step is: one kind, one label, one timestamp column, one
-URI builder. We do **not** need a generic `gate_steps` table for two providers
-and a handful of kinds. If a third platform appears, that is when we
-normalise.
+`incompleteStep`, admin checkboxes, and `POST /api/gate/[slug]/action` stay
+the dispatcher. Adding a kind is: label, requirement bool, timestamp column,
+target id, URI builder.
 
-Recommended display order (contact always last, unchanged):
+v1 only *implements* `spotify_follow`. The other kinds are named in types and
+the admin UI can wait until phase 2, but the URI-based writer should be
+generic from day one (`saveToLibrary(uri)`).
 
-1. SoundCloud like / repost / comment / follow (whatever the gate requires,
-   current order)
-2. `spotify_follow`
-3. Name + email
+Display order: contact, then current SoundCloud order, then Spotify kinds
+(follow artist, follow playlist, save track, save album).
 
-Existing gates keep `require_spotify_follow = false`, so shipping this is a
-no-op until an admin ticks the box.
+Existing gates: `require_spotify_*` default false. New gates: same, until OAuth
+is proven.
 
-### 3.2 Two sessions, one identity
+### 3.4 Per-gate Spotify targets
 
-Unlock rows stay keyed on `(gate_id, soundcloud_user_urn)`. SoundCloud remains
-how we recognise a returning fan and how we authorize the download. Spotify is
-a **capability cookie**, not a second identity.
-
-```
-womp_gate_fan       existing SoundCloud session (unchanged)
-womp_gate_spotify   new encrypted Spotify session, same AES-GCM + HttpOnly
-                    + Secure + SameSite=Lax treatment
-```
-
-Consequences, which are also questions:
-
-- A gate that requires Spotify follow still requires Connect with SoundCloud
-  first, because that is when the unlock row is born. Fine for v1: every gate
-  still promotes a SoundCloud track.
-- A returning fan who already unlocked reconnects SoundCloud and gets the file;
-  we do not make them reconnect Spotify.
-- If we ever want a Spotify-only gate (no SoundCloud track), identity has to
-  become provider-agnostic. Out of scope. Do not pretend the v1 schema is that.
-
-Fan Spotify tokens are **never written to Postgres**, same rule as SoundCloud.
-What we persist on the unlock row: `spotify_user_id`, `spotify_display_name`,
-`spotify_followed_at`.
-
-`GateViewState` grows a `spotifyFan` (or `null`) so the UI knows whether to
-show Connect with Spotify or the Follow button when the current step is
-`spotify_follow`.
-
-### 3.3 One-click-per-action still holds
-
-Connect and Follow are two steps on purpose.
-
-```
-… SoundCloud steps …
-  ├─ [ Connect with Spotify ]     → OAuth, returns to this page connected
-  └─ once connected, as the Spotify display name:
-       ○ Follow on Spotify        [ Follow ]
-       Download still waits on contact, as today
-```
-
-Auto-following inside the callback would be the bulk action SoundCloud's terms
-forbid and Spotify's "artificial manipulation" clause is aimed at. The callback
-only writes the session cookie and `GET /me`.
-
-If the fan is already following, the Follow handler credits the step from
-`contains` and does not call `PUT`. If they *are* the artist account, credit
-without a write (same own-account courtesy as SoundCloud follow/repost).
-
-Token expiry between connect and follow: `reconnect: true` on the action
-response, same as SoundCloud, but it must not clear the SoundCloud session.
-`GateActionResponse.reconnect` should become provider-scoped
-(`reconnect: "soundcloud" | "spotify"`) so the UI only drops the dead cookie.
-
-### 3.4 Routes
-
-Public additions, mirroring SoundCloud:
-
-| Route | Purpose |
-| ----- | ------- |
-| `GET /api/gate/[slug]/spotify/connect` | PKCE + signed `state` (CSRF + gate slug + return path), verifier cookie, redirect to `accounts.spotify.com/authorize`. |
-| `GET /api/spotify/callback` | Single site-wide callback. Verify `state`, exchange `code`, `GET /me`, write `womp_gate_spotify`, redirect to `/gate/<slug>`. |
-| `POST /api/gate/[slug]/action` | Existing route. New `action: "spotify_follow"`. Dispatches to the Spotify session, not the SoundCloud one. |
-
-Mock: `GATE_MOCK_SPOTIFY=true` (ignored in production), independent of
-`GATE_MOCK_SOUNDCLOUD`, because Spotify *can* do real OAuth locally. Mock is
-for UI work without a dashboard app, not a substitute for a missing redirect
-URI.
-
-Admin: one new checkbox on the create/edit forms. Optional per-gate Spotify
-artist URL; default to `SPOTIFY_ARTIST_ID`. CSV export gains Spotify user id /
-display name / followed-at.
-
-### 3.5 Data model
-
-Additive migration. No rewrite of `0001_download_gates.sql`.
+Default artist is WOMP. Everything else is a pasteable `open.spotify.com`
+URL, resolved at save time with the app token (individual `GET /v1/{type}/{id}`,
+not the removed batch endpoints).
 
 ```
 gates
-  require_spotify_follow   bool not null default false
-  spotify_artist_id        text null
-  -- null = SPOTIFY_ARTIST_ID env. Non-null when an admin pastes a
-  -- different artist (a collab, a side project).
+  require_spotify_follow            bool not null default false
+  require_spotify_follow_playlist   bool not null default false
+  require_spotify_save_track        bool not null default false
+  require_spotify_save_album        bool not null default false
 
-gate_unlocks
-  spotify_user_id          text null
-  spotify_display_name     text null
-  spotify_followed_at      timestamptz null
+  spotify_artist_id                 text null   -- null → SPOTIFY_ARTIST_ID
+  spotify_playlist_id               text null
+  spotify_track_id                  text null
+  spotify_album_id                  text null
 ```
 
-`spotify_artist_id` is stored denormalised on the gate so a later env-var
-change cannot retarget an already-published step. Resolve it at create/edit
-time via `GET /v1/artists/{id}` (already in `lib/spotify.ts`).
+Store the resolved id on the gate so an env-var change cannot retarget a live
+step. Admin validation: a required kind without its target id cannot publish
+(except follow-artist, which may fall back to `SPOTIFY_ARTIST_ID`). Relabel
+SoundCloud's existing `follow` checkbox to "Follow on SoundCloud".
 
-Future Spotify kinds add `spotify_saved_track_at`, etc. That is a little ugly
-and is the price of not building a steps table yet. Acceptable for a handful
-of columns.
+CSV export: email stays the lead column; add Spotify user id / display name /
+per-kind timestamps.
 
-### 3.6 Modules
+### 3.5 One-click-per-action
 
-Keep Spotify user-auth out of `lib/spotify.ts`. That file is client-credentials
-plus the unofficial Pathfinder scrape; mixing a fan token into it is how we
-would accidentally call a write with the app token.
+```
+/gate/dubstep-single
+  ├─ Track artwork, title, SoundCloud embed
+  ├─ First name, email, list opt-in          ← step 1, always
+  ├─ [ Connect with SoundCloud ]
+  ├─ ○ Like / Repost / Comment / Follow on SoundCloud
+  ├─ [ Connect with Spotify ]                ← when a Spotify step is next
+  ├─ ○ Follow on Spotify              [ Follow ]
+  └─ Download
+```
 
-New, parallel to SoundCloud:
+If the fan is already following, credit from `contains`. If they *are* the
+artist account, credit without a write (same own-account courtesy as
+SoundCloud follow/repost).
 
+Token expiry: `GateActionResponse.reconnect` becomes
+`"soundcloud" | "spotify"` so the UI only drops the dead cookie. The claim
+cookie is untouched.
+
+### 3.6 Routes
+
+| Route | Purpose |
+| ----- | ------- |
+| `POST /api/gate/[slug]/claim` | Existing. Becomes step 1. Creates or resumes the unlock by normalised email, writes `womp_gate_claim`. |
+| `GET /api/gate/[slug]/connect` | Existing SoundCloud connect. Requires a claim cookie. |
+| `GET /api/gate/[slug]/spotify/connect` | PKCE + signed `state`, verifier cookie, redirect to Spotify. Requires a claim cookie. Scopes = union of this gate's remaining Spotify kinds. |
+| `GET /api/spotify/callback` | Site-wide callback. Verify `state`, exchange `code`, `GET /me`, write `womp_gate_spotify`, attach `spotify_user_id` to the claim's unlock row, redirect to `/gate/<slug>`. |
+| `POST /api/gate/[slug]/action` | Existing. New Spotify kinds dispatch to the Spotify session. |
+| `GET /api/gate/[slug]/download` | Requires the claim cookie and an unlocked row. No live platform token. |
+
+Mock: `GATE_MOCK_SPOTIFY=true` (ignored in production), independent of
+`GATE_MOCK_SOUNDCLOUD`. Real Spotify OAuth locally is possible and preferred.
+
+### 3.7 Modules
+
+Keep fan auth out of `lib/spotify.ts`.
+
+- `lib/gate-claim.ts` (or extend gate-service) — claim cookie, email
+  normalisation, resume-or-create.
 - `lib/spotify-user-auth.ts` — PKCE, signed state, token exchange, sealed
-  session cookie, `GATE_MOCK_SPOTIFY`.
-- `lib/spotify-actions.ts` — `followArtist`, `isFollowingArtist`, resolve
-  artist URL → id. URI-based so `saveTrack(uri)` later is the same `PUT
-  /me/library` with a different URI.
+  session, `GATE_MOCK_SPOTIFY`.
+- `lib/spotify-actions.ts` — URI-based `saveToLibrary` / `libraryContains`,
+  plus resolve-URL helpers. v1 calls it with `spotify:artist:{id}`.
 
 `lib/gate-service.ts` `applyAction` branches on `actionProvider(kind)` for
-which session to require and which performer to call. The "already done /
-own-account / persist timestamp / recompute unlock" skeleton stays shared.
+which session to require. The already-done / own-account / persist timestamp /
+recompute unlock skeleton stays shared.
 
-`lib/gate-types.ts` labels:
+Labels:
 
 ```
 spotify_follow: {
@@ -320,105 +386,59 @@ spotify_follow: {
 }
 ```
 
-Admin should also relabel the existing SoundCloud `follow` to "Follow on
-SoundCloud" so the two checkboxes are not ambiguous.
+Phase 2 adds save-track / save-album / follow-playlist copy the same way.
 
-### 3.7 Privacy
+### 3.8 Privacy
 
-`/privacy` currently only describes a SoundCloud connection. Shipping this
-requires, in the same change:
+`/privacy` has to move in the same change:
 
-- We collect the Spotify user id and display name.
-- We do not collect the Spotify password or persist the access token.
-- We do not read library, playlists, or listening history in v1.
-- Follow happens only on an explicit click.
-- Revoke from Spotify → Account → Apps.
-
----
-
-## 4. Fan-facing flow (with Spotify follow on)
-
-```
-/gate/dubstep-single
-  ├─ Track artwork, title, SoundCloud embed (unchanged)
-  ├─ [ Connect with SoundCloud ]
-  └─ once connected:
-       ├─ ○ Like / Repost / Comment / Follow on SoundCloud
-       ├─ [ Connect with Spotify ]          ← only if this step is next
-       ├─ ○ Follow on Spotify        [ Follow ]
-       └─ First name, email, list opt-in → [ Download ]
-```
-
-The one-at-a-time stepper in `components/gate-experience.tsx` already renders
-whatever `incompleteStep` returns. The new work there is: when the current
-kind's provider is Spotify and `spotifyFan` is missing, render a Connect panel
-instead of the action button; keep SoundCloud's fan chip in the header so it
-does not look like they were signed out.
-
-Failure states to design, not discover: Spotify 403 (user not on the
-Development Mode allowlist — this will be the common production failure if we
-ship without Extended Quota), 429 `QUOTA_EXCEEDED` vs ordinary rate limit,
-revoked grant, expired token, artist id missing on the gate.
+- Email and name are how we recognise you, collected first.
+- We collect SoundCloud username when you connect SoundCloud, and Spotify user
+  id / display name when you connect Spotify.
+- We do not collect passwords. Access tokens live in cookies (~1 hour) and are
+  not stored.
+- Each follow or save happens only on that button.
+- Revoke from SoundCloud and from Spotify → Account → Apps.
+- Pre-save, if it ever ships, must disclose stored refresh tokens.
 
 ---
 
-## 5. Proposed build order
+## 4. Proposed build order
 
-Independently reviewable, sequenced by dependency. Do not start this until Q1
-is answered; the 403-for-everyone outcome is not a polish item.
+Email-first is independently useful and unblocks a Spotify-only future. Ship
+it before, or in the same build as, the follow step.
 
-1. **Spotify user auth.** `lib/spotify-user-auth.ts`, callback route, mock
-   flag, env (`SPOTIFY_OAUTH_REDIRECT_URI`). Prove connect → `/me` → cookie on
-   an allowlisted account.
-2. **Follow write.** `lib/spotify-actions.ts`: `contains` then `PUT
-   /me/library`, fallback to `PUT /me/following`, own-account / already-
-   following credit. Confirm artist URIs actually save.
-3. **Persistence.** Migration for the new columns; extend `gate-types`,
-   `gate-store`, `isUnlocked`.
-4. **Service + fan UI.** Provider-aware `applyAction`, Connect-with-Spotify
-   panel, Follow button, reconnect scoped per provider.
-5. **Admin.** Checkbox, optional artist URL resolve, CSV columns, SoundCloud
-   follow relabel.
-6. **Privacy + README + `.env.example`.** Operational notes: Premium on the
-   dashboard owner, allowlist, redirect URIs including `127.0.0.1`.
-
----
-
-## Recommended defaults (pending questions)
-
-| Topic | Recommendation |
-| --- | --- |
-| Follow target | Site artist (`SPOTIFY_ARTIST_ID`), overridable per gate by pasting an artist URL. |
-| Identity | SoundCloud remains the unlock key. Spotify is an extra connection. |
-| Connect vs Follow | Two clicks. Callback never writes. |
-| Existing gates | `require_spotify_follow` defaults false. New gates: checkbox off until OAuth is proven, then we can default it on. |
-| Tokens | Encrypted cookie only. No refresh-token persistence. |
-| Mock | Separate `GATE_MOCK_SPOTIFY`; real OAuth locally is possible and preferred. |
-| Future steps | Same kind-union + `/me/library` URI. Do not build a steps table in v1. |
-| Honor-system fallback | Only if Q1 says we must ship to the public without Extended Quota. |
+1. **Email-first identity.** Claim cookie, unique `(gate_id, lower(email))`,
+   nullable SoundCloud URN, `incompleteStep` / `authorizeDownload` / claim
+   route, fan UI step order, privacy copy. Existing SoundCloud gates keep
+   working; returning fans re-enter email instead of reconnecting SoundCloud.
+2. **Spotify user auth.** `lib/spotify-user-auth.ts`, callback, mock flag,
+   `SPOTIFY_OAUTH_REDIRECT_URI`. Prove connect → `/me` → cookie on an
+   allowlisted account.
+3. **Follow write.** `lib/spotify-actions.ts`: `contains` then `PUT
+   /me/library`, fallback, own-account / already-following. Confirm artist
+   URIs actually save.
+4. **Wire `spotify_follow`.** Migration columns, types, service, Connect +
+   Follow UI, admin checkbox + optional artist URL, CSV, reconnect scoped per
+   provider.
+5. **Phase 2 kinds** (after v1 is proven): follow playlist, save track, save
+   album. Same writer, more checkboxes and target fields.
+6. **Phase 3 pre-save:** persisted refresh tokens, release-at, cron. Explicit
+   privacy + terms review before this starts.
 
 ---
 
 ## Open questions
 
-1. **Quota mode of the existing Spotify app.** Dashboard → the app → Settings:
-   is App Status Development Mode or Extended Quota? If Development Mode, an
-   API-verified follow step only works for five allowlisted emails. Options:
-   (a) build the real OAuth anyway, testers-only, and leave the public checkbox
-   off; (b) add an honor-system "open Spotify → confirm" fallback for everyone
-   else; (c) do not ship the step until quota changes. **This is the blocker.**
-2. **Follow target.** Always WOMP's artist profile, or pasteable per gate from
-   day one? Related: "follow my Spotify *account*" — artist id
-   `spotify:artist:64XV9aZxwoLuxf9tgvu9Pb`, or the user profile behind it
-   (`spotify:user:…`)? Artist follow is what fans mean by following WOMP.
-3. **Honor-system fallback.** If (1) is Development Mode, do we want a public
-   non-verified step in v1, or only the verified path?
-4. **SoundCloud still required?** Recommendation yes for v1. Confirm we are not
-   trying to make a Spotify-only gate yet.
-5. **Step order.** After all SoundCloud actions and before email, or should
-   the admin reorder?
-6. **Next Spotify steps already in mind?** Save this release's track, follow a
-   playlist, save an album — naming the kinds now keeps the union honest.
-7. **Silent follow on connect.** Recommendation: no. Confirm.
-8. **New-gate default.** Recommendation: checkbox off until the OAuth path is
-   proven in production with an allowlisted account.
+1. **Public Spotify step without Extended Quota.** Verified follow will 403
+   for anyone not on the 5-user allowlist. Do we (a) keep Spotify checkboxes
+   off in production and only test with allowlisted accounts, (b) add an
+   honor-system "open Spotify, then confirm" fallback for everyone else, or
+   (c) both — verified path when the API succeeds, honor-system when it 403s?
+   Recommendation: **(a) for v1**, do not pretend a public Spotify step works.
+   Add (b) only if you want the checkbox usable on a real drop.
+2. **Email verification.** Recommendation: **unverified**, matching today.
+   Magic link later if the list gets abused.
+3. **Email-first on live gates.** Recommendation: **yes, all gates**, not only
+   ones with Spotify on. Confirm that existing published gates should start
+   with the form next time we ship.
