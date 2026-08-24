@@ -16,6 +16,12 @@ import { fileURLToPath } from "node:url";
 
 import postgres from "postgres";
 
+import {
+  describeTarget,
+  loadEnvLocal,
+  requireDatabaseUrl,
+} from "./db-url.mjs";
+
 const MIGRATIONS_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -23,34 +29,10 @@ const MIGRATIONS_DIR = join(
   "migrations",
 );
 
-function loadEnvFile() {
-  // `node --env-file` is not available on every Node version we support, so
-  // read .env.local ourselves when DATABASE_URL is not already set.
-  if (process.env.DATABASE_URL) return Promise.resolve();
-  const path = join(dirname(fileURLToPath(import.meta.url)), "..", ".env.local");
-  return readFile(path, "utf8")
-    .then((contents) => {
-      for (const line of contents.split("\n")) {
-        const match = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-        if (!match) continue;
-        const value = match[2].replace(/^["']|["']$/g, "");
-        if (!process.env[match[1]]) process.env[match[1]] = value;
-      }
-    })
-    .catch(() => {});
-}
-
 async function main() {
-  await loadEnvFile();
-
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    console.error(
-      "DATABASE_URL is not set. Add it to .env.local or pass it inline:\n" +
-        "  DATABASE_URL=postgres://... npm run db:migrate",
-    );
-    process.exit(1);
-  }
+  await loadEnvLocal();
+  const url = requireDatabaseUrl();
+  console.log(`Migrating ${describeTarget(url)}\n`);
 
   const sql = postgres(url, { prepare: false, max: 1, onnotice: () => {} });
 

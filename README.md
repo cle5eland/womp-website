@@ -57,11 +57,18 @@ Design notes and the reasoning behind the constraints live in [`docs/download-ga
 
 ### Setup
 
-1. **Database.** Any Postgres works — a Neon database from the Vercel Marketplace, a Supabase project, or local. Set `DATABASE_URL` (use the *pooled* connection string in production) and apply the schema:
+1. **Database.** Any Postgres works; **Neon via the Vercel Marketplace** is the recommended option (Vercel → Storage → Create → Neon). Copy the **pooled** connection string — the host contains `-pooler` — into `DATABASE_URL`, then apply the schema:
 
 ```bash
 npm run db:migrate
+npm run db:check   # verifies connection, schema, role permissions, and env vars
 ```
+
+Use the pooled endpoint, not the direct one: serverless functions open a connection per instance and will exhaust a direct connection limit under load. `npm run db:check` warns if it spots a direct string.
+
+You can paste a provider's connection string verbatim. Neon appends `channel_binding=require` and Supabase's pooled string appends `pgbouncer=true`; both are client-side libpq parameters that `postgres.js` would otherwise forward to the server, which rejects them with a confusing `unrecognized configuration parameter`. `sanitizeConnectionString` in `lib/db.ts` strips them.
+
+Neon's free tier suspends compute after ~5 minutes idle and wakes in a few hundred milliseconds, so the first gate view after a quiet spell is slightly slow. It never pauses permanently. (Supabase's free tier *does* pause after 7 days of inactivity and needs a manual unpause, which is why it is not the default recommendation for a site with bursty traffic.)
 
 2. **Session secret.** `GATE_SESSION_SECRET=$(openssl rand -base64 32)`. Required in production; local dev falls back to a development default.
 
