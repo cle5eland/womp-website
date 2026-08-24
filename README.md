@@ -47,7 +47,7 @@ If credentials are not configured, the site degrades gracefully by reading the s
 
 A download gate is a public page for one song (`/gate/<slug>`) where a fan connects their SoundCloud account, likes / reposts / comments on / follows the track, leaves a name and email, and gets a download in return. Gates are managed at `/admin/gates`.
 
-Design notes and the reasoning behind the constraints live in [`docs/download-gate-plan.md`](docs/download-gate-plan.md). A proposed Spotify follow step (app connection, structured for more Spotify actions later) is in [`docs/spotify-gate-plan.md`](docs/spotify-gate-plan.md). The short version of what matters when changing this code:
+Design notes and the reasoning behind the constraints live in [`docs/download-gate-plan.md`](docs/download-gate-plan.md). A proposed Spotify follow step (open the Spotify page, then attest; structured for more Spotify actions later) is in [`docs/spotify-gate-plan.md`](docs/spotify-gate-plan.md). The short version of what matters when changing this code:
 
 - **Writes need a user token.** `lib/soundcloud-auth.ts` holds an app-level client-credentials token that can only *read*. Like / repost / comment / follow all require the Authorization Code + PKCE flow in `lib/soundcloud-user-auth.ts`.
 - **One action per click, no bulk button.** SoundCloud's API terms only permit acting on a user's behalf for actions "specifically and deliberately initiated by the user". Comment text is always written by the fan and never pre-filled.
