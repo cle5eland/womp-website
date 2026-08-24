@@ -22,7 +22,7 @@ import {
   MIN_COMMENT_LENGTH,
   isUnlocked,
 } from "@/lib/gate-types";
-import { performAction } from "@/lib/soundcloud-actions";
+import { isSameSoundcloudUser, performAction } from "@/lib/soundcloud-actions";
 import { type FanSession, isMockMode } from "@/lib/soundcloud-user-auth";
 
 /**
@@ -162,19 +162,57 @@ export async function applyAction(
     };
   }
 
-  const result = await performAction({
-    action,
-    accessToken: session.accessToken,
-    track: { trackUrn: gate.trackUrn, trackId: gate.trackId },
-    artist: { artistUserUrn: gate.artistUserUrn },
-    commentBody: trimmedComment,
-  });
+  // SoundCloud will not let you follow yourself or repost your own track.
+  // Credit the step so the artist can test the live gate, rather than mapping
+  // those rejections onto a "reconnect" or a 502.
+  const actingOnOwnAccount = isSameSoundcloudUser(
+    session.fan.userUrn,
+    gate.artistUserUrn,
+  );
+  if (actingOnOwnAccount && (action === "follow" || action === "repost")) {
+    console.log("[gate] credited own-account action without SoundCloud write", {
+      slug,
+      action,
+      fan: session.fan.username,
+    });
+    const updated = await markAction(gate.id, session.fan.userUrn, action);
+    return finish(gate, updated ?? unlock);
+  }
+
+  let result: Awaited<ReturnType<typeof performAction>>;
+  try {
+    result = await performAction({
+      action,
+      accessToken: session.accessToken,
+      track: { trackUrn: gate.trackUrn, trackId: gate.trackId },
+      artist: { artistUserUrn: gate.artistUserUrn },
+      commentBody: trimmedComment,
+    });
+  } catch (err) {
+    console.error("[gate] action threw", {
+      slug,
+      action,
+      fan: session.fan.username,
+      err,
+    });
+    return {
+      ok: false,
+      status: 502,
+      error: "SoundCloud is having trouble. Try again.",
+    };
+  }
 
   if (!result.ok) {
-    console.warn(
-      `[gate] ${slug} ${action} failed: ${result.reason} (${result.status})`,
-      result.message ?? "",
-    );
+    const log = result.status >= 500 ? console.error : console.warn;
+    log("[gate] action failed", {
+      slug,
+      action,
+      fan: session.fan.username,
+      reason: result.reason,
+      status: result.status,
+      path: result.path,
+      message: result.message,
+    });
     return { ok: false, ...describeFailure(result.reason, result.message) };
   }
 
@@ -193,6 +231,11 @@ function describeFailure(
         error: "SoundCloud rejected the request. Reconnect and try again.",
         reconnect: true,
       };
+    case "forbidden":
+      return {
+        status: 403,
+        error: message ?? "SoundCloud would not allow that action.",
+      };
     case "not-found":
       return {
         status: 404,
@@ -206,7 +249,7 @@ function describeFailure(
     case "unprocessable":
       return {
         status: 422,
-        error: message ?? "SoundCloud would not accept that.",
+        error: message ?? "SoundCloud would not accept that action.",
       };
     default:
       return { status: 502, error: "SoundCloud is having trouble. Try again." };

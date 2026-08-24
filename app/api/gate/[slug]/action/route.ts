@@ -40,12 +40,21 @@ export async function POST(
   const comment = typeof payload.comment === "string" ? payload.comment : undefined;
   const session = await readSessionFromCookies();
 
-  const result = await applyAction({
-    slug,
-    action: action as GateActionKind,
-    commentBody: comment,
-    session,
-  });
+  let result: Awaited<ReturnType<typeof applyAction>>;
+  try {
+    result = await applyAction({
+      slug,
+      action: action as GateActionKind,
+      commentBody: comment,
+      session,
+    });
+  } catch (err) {
+    console.error("[gate] action route threw", err);
+    return json(
+      { ok: false, error: "SoundCloud is having trouble. Try again." },
+      502,
+    );
+  }
 
   if (!result.ok) {
     return json(

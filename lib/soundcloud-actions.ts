@@ -4,7 +4,12 @@ import {
   getSoundcloudAccessToken,
   invalidateSoundcloudAccessToken,
 } from "@/lib/soundcloud-auth";
-import { fetchWithRetry } from "@/lib/soundcloud-http";
+import {
+  fetchWithRetry,
+  logSoundcloud,
+  readSoundcloudErrorBody,
+  soundcloudResponseMeta,
+} from "@/lib/soundcloud-http";
 import { isMockMode } from "@/lib/soundcloud-user-auth";
 import type { GateActionKind } from "@/lib/gate-types";
 
@@ -17,7 +22,7 @@ import type { GateActionKind } from "@/lib/gate-types";
  * | like    | POST /likes/tracks/{urn}            | 200      |
  * | repost  | POST /reposts/tracks/{urn}          | 201      |
  * | comment | POST /tracks/{urn}/comments         | 201      |
- * | follow  | PUT  /me/followings/{user_urn}      | 200/201  |
+ * | follow  | PUT  /me/followings/{user_id}       | 200/201  |
  *
  * Two things worth knowing before changing this file:
  *
@@ -28,15 +33,20 @@ import type { GateActionKind } from "@/lib/gate-types";
  *     will happily post duplicates if asked to.
  *
  * Ids: the OpenAPI spec describes these paths in terms of URNs
- * (`soundcloud:tracks:123`), while the prose guide shows bare numeric ids. We
- * send the URN and retry once with the numeric id on a 404, so a change on
- * their side does not take the gate down.
+ * (`soundcloud:tracks:123`), while the prose guide shows bare numeric ids.
+ * Colons in an unencoded URN have also produced 400s from their gateway, which
+ * we used to surface as a generic 502. We percent-encode the URN, send it, and
+ * retry with the numeric id on 400/401/404 so either form keeps the gate up.
+ *
+ * Follow is flipped: the guide's `PUT /me/followings/:user_id` is numeric, and
+ * that is the path we try first.
  */
 
 const API_BASE = "https://api.soundcloud.com";
 
 export type ActionFailureReason =
   | "unauthorized"
+  | "forbidden"
   | "not-found"
   | "rate-limited"
   | "unprocessable"
@@ -44,36 +54,67 @@ export type ActionFailureReason =
 
 export type SoundcloudActionResult =
   | { ok: true }
-  | { ok: false; reason: ActionFailureReason; status: number; message?: string };
+  | {
+      ok: false;
+      reason: ActionFailureReason;
+      status: number;
+      message?: string;
+      path?: string;
+    };
 
 function classify(status: number): ActionFailureReason {
-  if (status === 401 || status === 403) return "unauthorized";
+  if (status === 401) return "unauthorized";
+  if (status === 403) return "forbidden";
   if (status === 404) return "not-found";
   if (status === 429) return "rate-limited";
-  if (status === 422) return "unprocessable";
+  if (status === 400 || status === 422) return "unprocessable";
   return "failed";
 }
 
-/** Best-effort extraction of SoundCloud's human-readable error message. */
-async function errorMessage(res: Response): Promise<string | undefined> {
-  try {
-    const text = await res.text();
-    if (!text) return undefined;
-    const parsed = JSON.parse(text) as {
-      errors?: { error_message?: string; message?: string }[];
-      error?: string;
-      message?: string;
-    };
-    return (
-      parsed.errors?.[0]?.error_message ??
-      parsed.errors?.[0]?.message ??
-      parsed.error ??
-      parsed.message ??
-      text.slice(0, 200)
-    );
-  } catch {
-    return undefined;
+/** Pull the trailing numeric id out of a URN or a bare-digit string. */
+export function numericIdFromUrn(urn: string): number | null {
+  const trimmed = urn.trim();
+  if (/^\d+$/.test(trimmed)) {
+    const n = Number.parseInt(trimmed, 10);
+    return Number.isSafeInteger(n) && n > 0 ? n : null;
   }
+  const match = trimmed.match(/:(\d+)$/);
+  if (!match) return null;
+  const n = Number.parseInt(match[1], 10);
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
+export function isSameSoundcloudUser(a: string, b: string): boolean {
+  if (a === b) return true;
+  const idA = numericIdFromUrn(a);
+  const idB = numericIdFromUrn(b);
+  return idA != null && idA === idB;
+}
+
+/**
+ * SoundCloud rejects some writes that, for a download gate, already mean the
+ * fan has done the thing: they follow the artist, they already reposted, or
+ * they *are* the artist (you cannot follow or repost yourself). Treating those
+ * as success is what lets the artist test their own gate and lets existing
+ * followers through.
+ */
+function isAlreadySatisfied(status: number, message?: string): boolean {
+  if (status === 409) return true;
+  const text = (message ?? "").toLowerCase();
+  if (!text) return false;
+  if (
+    /\balready\b/.test(text) &&
+    /\b(follow|repost|like|favorite)/.test(text)
+  ) {
+    return true;
+  }
+  return (
+    /cannot follow yourself/.test(text) ||
+    /can't follow yourself/.test(text) ||
+    /cannot repost your own/.test(text) ||
+    /can't repost your own/.test(text) ||
+    /repost your own (track|sound)/.test(text)
+  );
 }
 
 type WriteInit = {
@@ -82,10 +123,18 @@ type WriteInit = {
   contentType?: string;
 };
 
+const WRITE_TIMEOUT_MS = 5_000;
+/** Like/repost/follow are effectively idempotent; a 5xx after a silent success
+ *  is safer to retry than to fail the fan. Comments are not. */
+const IDEMPOTENT_RETRY = [429, 500, 502, 503, 504];
+/** URN vs numeric-id disagreement (and unencoded-colon 400s) show up as these. */
+const ID_FALLBACK_STATUSES = new Set([400, 401, 404, 500, 502, 503]);
+
 async function userWrite(
   path: string,
   accessToken: string,
   init: WriteInit,
+  retryableStatuses: number[] = [429],
 ): Promise<Response> {
   const headers: Record<string, string> = {
     authorization: `OAuth ${accessToken}`,
@@ -93,41 +142,195 @@ async function userWrite(
   };
   if (init.contentType) headers["content-type"] = init.contentType;
 
-  return fetchWithRetry(
-    `${API_BASE}${path}`,
-    { method: init.method, headers, body: init.body, cache: "no-store" },
-    { maxRetries: 2, baseDelayMs: 600 },
-  );
+  try {
+    return await fetchWithRetry(
+      `${API_BASE}${path}`,
+      { method: init.method, headers, body: init.body, cache: "no-store" },
+      {
+        maxRetries: 1,
+        baseDelayMs: 400,
+        maxTotalWaitMs: 8_000,
+        retryableStatuses,
+        timeoutMs: WRITE_TIMEOUT_MS,
+      },
+    );
+  } catch (err) {
+    const error = err as Error;
+    logSoundcloud("error", "write network error", {
+      method: init.method,
+      path,
+      name: error.name,
+      message: error.message,
+    });
+    return new Response(JSON.stringify({ error: "network" }), {
+      status: 503,
+      headers: { "content-type": "application/json" },
+    });
+  }
+}
+
+function logWriteOutcome(input: {
+  event: "write failed" | "write already satisfied" | "write fallback";
+  level: "warn" | "error";
+  action: string;
+  method: string;
+  path: string;
+  status: number;
+  message?: string;
+  body?: string;
+  reason?: ActionFailureReason;
+  fallbackPath?: string;
+  meta?: Record<string, unknown>;
+}): void {
+  logSoundcloud(input.level, input.event, {
+    action: input.action,
+    method: input.method,
+    path: input.path,
+    status: input.status,
+    message: input.message,
+    body: input.body,
+    reason: input.reason,
+    fallbackPath: input.fallbackPath,
+    ...input.meta,
+  });
 }
 
 /**
- * Run a write against the URN path, retrying once against the numeric-id path
- * if the URN form 404s. `expected` lists the statuses that mean success — they
- * differ per endpoint (like returns 200, repost 201, follow either).
+ * Run a write against `primaryPath`, retrying once against `fallbackPath` when
+ * the first status looks like an id-format miss rather than a real rejection.
+ * `expected` lists the statuses that mean success — they differ per endpoint
+ * (like returns 200, repost 201, follow either).
  */
-async function writeWithUrnFallback(input: {
-  urnPath: string;
-  idPath: string | null;
+async function writeWithIdFallback(input: {
+  action: GateActionKind;
+  primaryPath: string;
+  fallbackPath: string | null;
   accessToken: string;
   init: WriteInit;
   expected: number[];
+  retryableStatuses?: number[];
+  /** Follow: an empty 400 after a numeric id is "already following". */
+  empty400IsDone?: boolean;
 }): Promise<SoundcloudActionResult> {
-  const { urnPath, idPath, accessToken, init, expected } = input;
+  const {
+    action,
+    primaryPath,
+    fallbackPath,
+    accessToken,
+    init,
+    expected,
+    retryableStatuses,
+    empty400IsDone,
+  } = input;
 
-  let res = await userWrite(urnPath, accessToken, init);
+  const attempt = (path: string) =>
+    userWrite(path, accessToken, init, retryableStatuses ?? [429]);
 
-  if (res.status === 404 && idPath) {
-    res = await userWrite(idPath, accessToken, init);
+  const asResult = (
+    path: string,
+    status: number,
+    message?: string,
+  ): SoundcloudActionResult => {
+    if (expected.includes(status)) return { ok: true };
+    if (isAlreadySatisfied(status, message)) return { ok: true };
+    if (empty400IsDone && status === 400 && !message) return { ok: true };
+    return {
+      ok: false,
+      reason: classify(status),
+      status,
+      message,
+      path,
+    };
+  };
+
+  const readFailure = async (res: Response, path: string) => {
+    if (expected.includes(res.status)) {
+      return { message: undefined as string | undefined, body: undefined as string | undefined, meta: soundcloudResponseMeta(res), path, status: res.status };
+    }
+    const { message, body } = await readSoundcloudErrorBody(res);
+    return { message, body, meta: soundcloudResponseMeta(res), path, status: res.status };
+  };
+
+  const first = await readFailure(await attempt(primaryPath), primaryPath);
+  const firstResult = asResult(first.path, first.status, first.message);
+  if (firstResult.ok) {
+    if (!expected.includes(first.status)) {
+      logWriteOutcome({
+        event: "write already satisfied",
+        level: "warn",
+        action,
+        method: init.method,
+        path: first.path,
+        status: first.status,
+        message: first.message,
+        body: first.body,
+        meta: first.meta,
+      });
+    }
+    return firstResult;
   }
 
-  if (expected.includes(res.status)) return { ok: true };
+  if (!fallbackPath || !ID_FALLBACK_STATUSES.has(first.status)) {
+    logWriteOutcome({
+      event: "write failed",
+      level: first.status >= 500 ? "error" : "warn",
+      action,
+      method: init.method,
+      path: first.path,
+      status: first.status,
+      message: first.message,
+      body: first.body,
+      reason: firstResult.reason,
+      meta: first.meta,
+    });
+    return firstResult;
+  }
 
-  return {
-    ok: false,
-    reason: classify(res.status),
-    status: res.status,
-    message: await errorMessage(res),
-  };
+  logWriteOutcome({
+    event: "write fallback",
+    level: "warn",
+    action,
+    method: init.method,
+    path: first.path,
+    status: first.status,
+    message: first.message,
+    body: first.body,
+    fallbackPath,
+    meta: first.meta,
+  });
+
+  const second = await readFailure(await attempt(fallbackPath), fallbackPath);
+  const secondResult = asResult(second.path, second.status, second.message);
+  if (secondResult.ok) {
+    if (!expected.includes(second.status)) {
+      logWriteOutcome({
+        event: "write already satisfied",
+        level: "warn",
+        action,
+        method: init.method,
+        path: second.path,
+        status: second.status,
+        message: second.message,
+        body: second.body,
+        meta: second.meta,
+      });
+    }
+    return secondResult;
+  }
+
+  logWriteOutcome({
+    event: "write failed",
+    level: second.status >= 500 ? "error" : "warn",
+    action,
+    method: init.method,
+    path: second.path,
+    status: second.status,
+    message: second.message,
+    body: second.body,
+    reason: secondResult.reason,
+    meta: second.meta,
+  });
+  return secondResult;
 }
 
 // ---------------------------------------------------------------------------
@@ -145,12 +348,14 @@ export async function likeTrack(
   accessToken: string,
   target: TrackTarget,
 ): Promise<SoundcloudActionResult> {
-  return writeWithUrnFallback({
-    urnPath: `/likes/tracks/${target.trackUrn}`,
-    idPath: target.trackId ? `/likes/tracks/${target.trackId}` : null,
+  return writeWithIdFallback({
+    action: "like",
+    primaryPath: `/likes/tracks/${encodeURIComponent(target.trackUrn)}`,
+    fallbackPath: target.trackId ? `/likes/tracks/${target.trackId}` : null,
     accessToken,
     init: { method: "POST" },
     expected: [200, 201, 204],
+    retryableStatuses: IDEMPOTENT_RETRY,
   });
 }
 
@@ -158,12 +363,14 @@ export async function repostTrack(
   accessToken: string,
   target: TrackTarget,
 ): Promise<SoundcloudActionResult> {
-  return writeWithUrnFallback({
-    urnPath: `/reposts/tracks/${target.trackUrn}`,
-    idPath: target.trackId ? `/reposts/tracks/${target.trackId}` : null,
+  return writeWithIdFallback({
+    action: "repost",
+    primaryPath: `/reposts/tracks/${encodeURIComponent(target.trackUrn)}`,
+    fallbackPath: target.trackId ? `/reposts/tracks/${target.trackId}` : null,
     accessToken,
     init: { method: "POST" },
     expected: [200, 201, 204],
+    retryableStatuses: IDEMPOTENT_RETRY,
   });
 }
 
@@ -181,9 +388,10 @@ export async function commentOnTrack(
   body: string,
 ): Promise<SoundcloudActionResult> {
   const payload = JSON.stringify({ comment: { body } });
-  return writeWithUrnFallback({
-    urnPath: `/tracks/${target.trackUrn}/comments`,
-    idPath: target.trackId ? `/tracks/${target.trackId}/comments` : null,
+  return writeWithIdFallback({
+    action: "comment",
+    primaryPath: `/tracks/${encodeURIComponent(target.trackUrn)}/comments`,
+    fallbackPath: target.trackId ? `/tracks/${target.trackId}/comments` : null,
     accessToken,
     init: {
       method: "POST",
@@ -203,12 +411,21 @@ export async function followArtist(
   accessToken: string,
   target: ArtistTarget,
 ): Promise<SoundcloudActionResult> {
-  return writeWithUrnFallback({
-    urnPath: `/me/followings/${target.artistUserUrn}`,
-    idPath: null,
+  const userId = numericIdFromUrn(target.artistUserUrn);
+  // Guide documents numeric `/me/followings/:user_id`. Unencoded URNs have
+  // 400'd in production (surfaced to the fan as a 502), so numeric goes first.
+  const numericPath = userId != null ? `/me/followings/${userId}` : null;
+  const urnPath = `/me/followings/${encodeURIComponent(target.artistUserUrn)}`;
+
+  return writeWithIdFallback({
+    action: "follow",
+    primaryPath: numericPath ?? urnPath,
+    fallbackPath: numericPath ? urnPath : null,
     accessToken,
     init: { method: "PUT" },
     expected: [200, 201, 204],
+    retryableStatuses: IDEMPOTENT_RETRY,
+    empty400IsDone: true,
   });
 }
 
@@ -317,6 +534,11 @@ export async function resolveTrackByUrl(url: string): Promise<ResolveResult> {
 
   let res = await request(token);
   if (res.status === 401) {
+    logSoundcloud("warn", "resolve unauthorized, refreshing app token", {
+      method: "GET",
+      path: "/resolve",
+      ...soundcloudResponseMeta(res),
+    });
     invalidateSoundcloudAccessToken();
     token = await getSoundcloudAccessToken();
     if (!token) return { ok: false, error: "Could not authenticate with SoundCloud." };
@@ -327,6 +549,15 @@ export async function resolveTrackByUrl(url: string): Promise<ResolveResult> {
     return { ok: false, error: "SoundCloud could not find that URL." };
   }
   if (!res.ok) {
+    const { message, body } = await readSoundcloudErrorBody(res);
+    logSoundcloud(res.status >= 500 ? "error" : "warn", "resolve failed", {
+      method: "GET",
+      path: "/resolve",
+      url: trimmed,
+      message,
+      body,
+      ...soundcloudResponseMeta(res),
+    });
     return { ok: false, error: `SoundCloud returned ${res.status}.` };
   }
 
