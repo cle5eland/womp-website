@@ -4,15 +4,19 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/db-migrate.mjs && next build",
     "start": "next start",
     "lint": "eslint",
-    "optimize-assets": "node scripts/optimize-public-assets.mjs"
+    "optimize-assets": "node scripts/optimize-public-assets.mjs",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:check": "node scripts/db-check.mjs"
   },
   "dependencies": {
+    "@vercel/blob": "^2.8.0",
     "@vercel/global-config": "^1.5.1",
     "framer-motion": "^12.38.0",
     "next": "^16.2.6",
+    "postgres": "^3.4.9",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "server-only": "^0.0.1"

@@ -43,6 +43,66 @@ If credentials are not configured, the site degrades gracefully by reading the s
 
 **Production:** set these in your host's secret manager (Vercel Project Settings → Environment Variables, or the Cursor Cloud Agents secrets dashboard). Don't paste real values into chat or commits — rotate immediately if you do.
 
+## Download gates
+
+A download gate is a public page for one song (`/gate/<slug>`) where a fan connects their SoundCloud account, likes / reposts / comments on / follows the track, leaves a name and email, and gets a download in return. Gates are managed at `/admin/gates`.
+
+Design notes and the reasoning behind the constraints live in [`docs/download-gate-plan.md`](docs/download-gate-plan.md). The short version of what matters when changing this code:
+
+- **Writes need a user token.** `lib/soundcloud-auth.ts` holds an app-level client-credentials token that can only *read*. Like / repost / comment / follow all require the Authorization Code + PKCE flow in `lib/soundcloud-user-auth.ts`.
+- **One action per click, no bulk button.** SoundCloud's API terms only permit acting on a user's behalf for actions "specifically and deliberately initiated by the user". Comment text is always written by the fan and never pre-filled.
+- **The gated file is never SoundCloud audio.** The terms prohibit apps that persist or re-serve SoundCloud content, so the deliverable is always a file you upload or a URL you host. There is deliberately no code path from a track to a download.
+- **Fan OAuth tokens are never stored.** They live in an encrypted cookie for their ~1 hour lifetime. Download entitlement comes from our own unlock record, so it survives token expiry.
+- **The comment endpoint is not idempotent.** `gate_unlocks.commented_at` is the guard that stops a refresh from posting duplicate comments — check it before calling the API.
+
+### Setup
+
+1. **Database.** Any Postgres works; **Neon via the Vercel Marketplace** is the recommended option (Vercel → Storage → Create → Neon). Its integration injects `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct) automatically, which is exactly what this code reads — so production needs no manual variable. Locally, `vercel env pull .env.local`, or paste the **pooled** string (its host contains `-pooler`) into `DATABASE_URL` by hand. Then apply the schema:
+
+```bash
+npm run db:migrate
+npm run db:check   # verifies connection, schema, role permissions, and env vars
+```
+
+The app must use the pooled endpoint: serverless functions open a connection per instance and will exhaust a direct connection limit under load. `npm run db:check` warns if it spots a direct string. Migrations are the opposite case — DDL and multi-statement transactions are what a transaction-mode pooler handles worst — so `db:migrate` prefers `DATABASE_URL_UNPOOLED` when it exists and falls back to `DATABASE_URL`.
+
+You can paste a provider's connection string verbatim. Neon appends `channel_binding=require` and Supabase's pooled string appends `pgbouncer=true`; both are client-side libpq parameters that `postgres.js` would otherwise forward to the server, which rejects them with a confusing `unrecognized configuration parameter`. `sanitizeConnectionString` in `lib/db.ts` strips them.
+
+Neon's free tier suspends compute after ~5 minutes idle and wakes in a few hundred milliseconds, so the first gate view after a quiet spell is slightly slow. It never pauses permanently. (Supabase's free tier *does* pause after 7 days of inactivity and needs a manual unpause, which is why it is not the default recommendation for a site with bursty traffic.)
+
+2. **Session secret.** `GATE_SESSION_SECRET=$(openssl rand -base64 32)`. Required in production; local dev falls back to a development default.
+
+3. **SoundCloud app.** Registering one requires an **Artist Pro** subscription. Create it at [soundcloud.com/you/apps](https://soundcloud.com/you/apps), reuse the same `SOUNDCLOUD_CLIENT_ID` / `SOUNDCLOUD_CLIENT_SECRET` as the stats panel, and set the app's redirect URI to exactly:
+
+```
+https://djwomp.com/api/soundcloud/callback
+```
+
+Then set `SOUNDCLOUD_OAUTH_REDIRECT_URI` to the same value. **SoundCloud allows one redirect URI per app**, which is why there is a single site-wide callback and the gate slug travels in the signed OAuth `state`. It also means you cannot point the same app at localhost and production — see mock mode below, or ask SoundCloud support for a second credential set.
+
+4. **File storage (optional).** Connect a Vercel Blob store to get `BLOB_READ_WRITE_TOKEN` and upload files through the admin UI. Files go from the browser straight to Blob, because serverless request bodies cap out well below the size of a master. Without a Blob store you can still paste a download URL you host.
+
+5. **First admin.** Set `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` (12+ characters), visit `/admin/login`, press **Create admin account**, sign in, then remove both variables. The bootstrap route refuses to run once an account exists.
+
+6. **Privacy policy.** `/privacy` is required — the API terms oblige any app processing user data to publish one. Set `PRIVACY_CONTACT_EMAIL` so deletion requests have somewhere to go.
+
+Accounts live in `gate_admins` and every gate carries an `owner_id`, so adding a second person later is an insert rather than a migration.
+
+### Local development without SoundCloud credentials
+
+Because production owns the only redirect URI, set:
+
+```bash
+GATE_MOCK_SOUNDCLOUD=true
+```
+
+"Connect with SoundCloud" then mints a fake fan session and the four write calls become no-ops, so the entire gate flow is clickable end to end. Track resolution returns a synthetic track, so you can create gates too. The flag is ignored when `NODE_ENV=production`.
+
+### Operations
+
+- `/api/cron/gate-retention` runs daily (see `vercel.json`) and deletes abandoned unlock rows older than 30 days. Completed unlocks are kept, since they are the record of who earned a download. It uses the same `CRON_SECRET` as the Instagram crons.
+- Each gate's admin page has a **CSV export** of completed unlocks — name, email, consent flag, per-action timestamps, download count.
+
 ## Public assets (images)
 
 Press photos, hero, and profile images live under `public/assets/`. **Run this before committing new or replaced images:**

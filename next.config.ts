@@ -50,6 +50,17 @@ const nextConfig: NextConfig = {
         hostname: "mosaic.scdn.co",
         pathname: "/**",
       },
+      // SoundCloud artwork + avatars, used by download gate pages.
+      {
+        protocol: "https",
+        hostname: "i1.sndcdn.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "a1.sndcdn.com",
+        pathname: "/**",
+      },
     ],
   },
 };
