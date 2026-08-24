@@ -2,6 +2,10 @@ import "server-only";
 
 import { requireDb } from "@/lib/db";
 import {
+  DEFAULT_SPOTIFY_ARTIST_ID,
+  spotifyArtistOpenUrl,
+} from "@/lib/spotify-gate";
+import {
   type GateActionKind,
   type GateDeliveryKind,
   type GateFanIdentity,
@@ -78,11 +82,14 @@ function mapGate(row: Row): GateRecord {
     artworkUrl: asText(row.artwork_url),
     artistUserUrn: String(row.artist_user_urn),
     artistUsername: String(row.artist_username),
+    spotifyArtistId: asText(row.spotify_artist_id),
+    spotifyArtistName: asText(row.spotify_artist_name),
     requirements: {
       like: row.require_like === true,
       repost: row.require_repost === true,
       comment: row.require_comment === true,
       follow: row.require_follow === true,
+      spotify_follow: row.require_spotify_follow === true,
     },
     deliveryKind: String(row.delivery_kind) as GateDeliveryKind,
     deliveryBlobUrl: asText(row.delivery_blob_url),
@@ -103,6 +110,7 @@ function mapProgress(row: Row): GateProgress {
     repost: asIso(row.reposted_at),
     comment: asIso(row.commented_at),
     follow: asIso(row.followed_at),
+    spotifyFollow: asIso(row.spotify_followed_at),
     emailCapturedAt: asIso(row.email_captured_at),
     unlockedAt: asIso(row.unlocked_at),
   };
@@ -112,8 +120,8 @@ function mapUnlock(row: Row): GateUnlockRecord {
   return {
     id: String(row.id),
     gateId: String(row.gate_id),
-    soundcloudUserUrn: String(row.soundcloud_user_urn),
-    soundcloudUsername: String(row.soundcloud_username),
+    soundcloudUserUrn: asText(row.soundcloud_user_urn),
+    soundcloudUsername: asText(row.soundcloud_username),
     firstName: asText(row.first_name),
     email: asText(row.email),
     marketingConsentAt: asIso(row.marketing_consent_at),
@@ -141,6 +149,10 @@ export function toPublicGate(gate: GateRecord): PublicGate {
     trackId: gate.trackId,
     requirements: gate.requirements,
     deliveryFilename: gate.deliveryFilename,
+    spotifyArtistName: gate.spotifyArtistName ?? "WOMP",
+    spotifyArtistUrl: spotifyArtistOpenUrl(
+      gate.spotifyArtistId ?? DEFAULT_SPOTIFY_ARTIST_ID,
+    ),
   };
 }
 
@@ -284,6 +296,8 @@ export type CreateGateInput = {
   artistUserUrn: string;
   artistUsername: string;
   requirements: GateRequirements;
+  spotifyArtistId: string | null;
+  spotifyArtistName: string | null;
 };
 
 export async function createGate(input: CreateGateInput): Promise<GateRecord> {
@@ -293,14 +307,17 @@ export async function createGate(input: CreateGateInput): Promise<GateRecord> {
       owner_id, slug, title, description, status,
       soundcloud_url, track_urn, track_id, track_title, track_permalink_url,
       artwork_url, artist_user_urn, artist_username,
-      require_like, require_repost, require_comment, require_follow
+      require_like, require_repost, require_comment, require_follow,
+      require_spotify_follow, spotify_artist_id, spotify_artist_name
     ) values (
       ${input.ownerId}, ${input.slug}, ${input.title}, ${input.description}, 'draft',
       ${input.soundcloudUrl}, ${input.trackUrn}, ${input.trackId},
       ${input.trackTitle}, ${input.trackPermalinkUrl},
       ${input.artworkUrl}, ${input.artistUserUrn}, ${input.artistUsername},
       ${input.requirements.like}, ${input.requirements.repost},
-      ${input.requirements.comment}, ${input.requirements.follow}
+      ${input.requirements.comment}, ${input.requirements.follow},
+      ${input.requirements.spotify_follow},
+      ${input.spotifyArtistId}, ${input.spotifyArtistName}
     )
     returning *
   `;
@@ -312,6 +329,8 @@ export type UpdateGatePatch = {
   description?: string | null;
   status?: GateStatus;
   requirements?: GateRequirements;
+  spotifyArtistId?: string | null;
+  spotifyArtistName?: string | null;
   deliveryKind?: GateDeliveryKind;
   deliveryBlobUrl?: string | null;
   deliveryExternalUrl?: string | null;
@@ -337,6 +356,13 @@ export async function updateGate(
     columns.require_repost = patch.requirements.repost;
     columns.require_comment = patch.requirements.comment;
     columns.require_follow = patch.requirements.follow;
+    columns.require_spotify_follow = patch.requirements.spotify_follow;
+  }
+  if (patch.spotifyArtistId !== undefined) {
+    columns.spotify_artist_id = patch.spotifyArtistId;
+  }
+  if (patch.spotifyArtistName !== undefined) {
+    columns.spotify_artist_name = patch.spotifyArtistName;
   }
   if (patch.deliveryKind !== undefined) {
     columns.delivery_kind = patch.deliveryKind;
@@ -392,9 +418,23 @@ const ACTION_COLUMN: Record<GateActionKind, string> = {
   repost: "reposted_at",
   comment: "commented_at",
   follow: "followed_at",
+  spotify_follow: "spotify_followed_at",
 };
 
-export async function getUnlock(
+export async function getUnlockByEmail(
+  gateId: string,
+  email: string,
+): Promise<GateUnlockRecord | null> {
+  const db = requireDb();
+  const rows = await db`
+    select * from gate_unlocks
+    where gate_id = ${gateId} and email_normalized = ${email.toLowerCase()}
+    limit 1
+  `;
+  return rows.length > 0 ? mapUnlock(rows[0]) : null;
+}
+
+export async function getUnlockBySoundcloudUrn(
   gateId: string,
   userUrn: string,
 ): Promise<GateUnlockRecord | null> {
@@ -408,23 +448,74 @@ export async function getUnlock(
 }
 
 /**
- * Fetch the fan's unlock row, creating it on first visit. The username is
- * refreshed on every call so a handle change on SoundCloud does not leave us
- * displaying a stale name.
+ * Create or resume the unlock row keyed by email. First name is refreshed so a
+ * typo fix on a later visit sticks; consent and email_captured_at are sticky.
  */
-export async function getOrCreateUnlock(
+export async function upsertClaim(
   gateId: string,
-  fan: GateFanIdentity,
+  input: { firstName: string; email: string; marketingConsent: boolean },
 ): Promise<GateUnlockRecord> {
   const db = requireDb();
+  const email = input.email.toLowerCase();
+  const consentAt = input.marketingConsent ? new Date() : null;
   const rows = await db`
-    insert into gate_unlocks (gate_id, soundcloud_user_urn, soundcloud_username)
-    values (${gateId}, ${fan.userUrn}, ${fan.username})
-    on conflict (gate_id, soundcloud_user_urn) do update
-      set soundcloud_username = ${fan.username}, updated_at = now()
+    insert into gate_unlocks (
+      gate_id, email, first_name, email_captured_at, marketing_consent_at
+    ) values (
+      ${gateId}, ${email}, ${input.firstName}, now(), ${consentAt}
+    )
+    on conflict on constraint gate_unlocks_gate_email_key do update
+      set first_name = ${input.firstName},
+          email_captured_at = coalesce(gate_unlocks.email_captured_at, now()),
+          marketing_consent_at = coalesce(gate_unlocks.marketing_consent_at, ${consentAt}),
+          updated_at = now()
     returning *
   `;
   return mapUnlock(rows[0]);
+}
+
+/**
+ * Attach a SoundCloud identity to an email-keyed unlock. No-op if this row
+ * already holds the same URN. Returns null when the URN belongs to a different
+ * row on this gate, or when this row already has a different URN.
+ */
+export async function attachSoundcloud(
+  unlock: GateUnlockRecord,
+  fan: GateFanIdentity,
+): Promise<GateUnlockRecord | { conflict: "other-row" | "other-account" }> {
+  if (unlock.soundcloudUserUrn) {
+    if (unlock.soundcloudUserUrn === fan.userUrn) {
+      if (unlock.soundcloudUsername === fan.username) return unlock;
+      const db = requireDb();
+      const rows = await db`
+        update gate_unlocks
+        set soundcloud_username = ${fan.username}, updated_at = now()
+        where id = ${unlock.id}
+        returning *
+      `;
+      return rows.length > 0 ? mapUnlock(rows[0]) : unlock;
+    }
+    return { conflict: "other-account" };
+  }
+
+  const taken = await getUnlockBySoundcloudUrn(unlock.gateId, fan.userUrn);
+  if (taken && taken.id !== unlock.id) return { conflict: "other-row" };
+
+  const db = requireDb();
+  try {
+    const rows = await db`
+      update gate_unlocks
+      set soundcloud_user_urn = ${fan.userUrn},
+          soundcloud_username = ${fan.username},
+          updated_at = now()
+      where id = ${unlock.id}
+        and soundcloud_user_urn is null
+      returning *
+    `;
+    return rows.length > 0 ? mapUnlock(rows[0]) : unlock;
+  } catch {
+    return { conflict: "other-row" };
+  }
 }
 
 /**
@@ -434,8 +525,7 @@ export async function getOrCreateUnlock(
  * entirely rather than posting a second comment.
  */
 export async function markAction(
-  gateId: string,
-  userUrn: string,
+  unlockId: string,
   action: GateActionKind,
 ): Promise<GateUnlockRecord | null> {
   const db = requireDb();
@@ -445,7 +535,7 @@ export async function markAction(
   const rows = await db`
     update gate_unlocks
     set ${db(column)} = coalesce(${db(column)}, now()), updated_at = now()
-    where gate_id = ${gateId} and soundcloud_user_urn = ${userUrn}
+    where id = ${unlockId}
     returning *
   `;
   return rows.length > 0 ? mapUnlock(rows[0]) : null;
@@ -453,21 +543,9 @@ export async function markAction(
 
 export async function captureContact(
   gateId: string,
-  userUrn: string,
   input: { firstName: string; email: string; marketingConsent: boolean },
-): Promise<GateUnlockRecord | null> {
-  const db = requireDb();
-  const rows = await db`
-    update gate_unlocks
-    set first_name = ${input.firstName},
-        email = ${input.email.toLowerCase()},
-        email_captured_at = coalesce(email_captured_at, now()),
-        marketing_consent_at = ${input.marketingConsent ? new Date() : null},
-        updated_at = now()
-    where gate_id = ${gateId} and soundcloud_user_urn = ${userUrn}
-    returning *
-  `;
-  return rows.length > 0 ? mapUnlock(rows[0]) : null;
+): Promise<GateUnlockRecord> {
+  return upsertClaim(gateId, input);
 }
 
 /**
@@ -520,8 +598,7 @@ export async function listUnlocks(
 
 /**
  * Delete abandoned unlock rows older than `days` — rows where the fan never
- * finished, so we are holding a SoundCloud handle for no reason. The API terms
- * require not retaining personal data longer than necessary; completed unlocks
+ * finished, so we are holding a name and email for no reason. Completed unlocks
  * are kept because they are the record of who is entitled to the download.
  */
 export async function pruneAbandonedUnlocks(days: number): Promise<number> {

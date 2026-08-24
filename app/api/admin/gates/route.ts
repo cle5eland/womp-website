@@ -3,12 +3,14 @@ import { NextResponse } from "next/server";
 import { getCurrentAdmin } from "@/lib/admin-auth";
 import { createGate, isSlugTaken } from "@/lib/gate-store";
 import {
+  DEFAULT_GATE_REQUIREMENTS,
   GATE_ACTION_KINDS,
   type GateRequirements,
   isValidSlug,
   normalizeSlug,
 } from "@/lib/gate-types";
 import { resolveTrackByUrl } from "@/lib/soundcloud-actions";
+import { resolveAdminSpotifyArtist } from "@/lib/spotify";
 
 /**
  * Creates a gate from a pasted SoundCloud track URL.
@@ -32,6 +34,7 @@ export async function POST(request: Request) {
     slug?: unknown;
     title?: unknown;
     requirements?: unknown;
+    spotifyArtistUrl?: unknown;
   };
   try {
     payload = await request.json();
@@ -89,6 +92,19 @@ export async function POST(request: Request) {
       ? payload.title.trim()
       : resolved.track.title;
 
+  let spotifyArtistId: string | null = null;
+  let spotifyArtistName: string | null = null;
+  if (typeof payload.spotifyArtistUrl === "string") {
+    const spotify = await resolveAdminSpotifyArtist(payload.spotifyArtistUrl);
+    if ("error" in spotify) {
+      return NextResponse.json({ error: spotify.error }, { status: 422 });
+    }
+    if ("id" in spotify) {
+      spotifyArtistId = spotify.id;
+      spotifyArtistName = spotify.name;
+    }
+  }
+
   const gate = await createGate({
     ownerId: admin.id,
     slug,
@@ -103,17 +119,20 @@ export async function POST(request: Request) {
     artistUserUrn: resolved.track.artistUserUrn,
     artistUsername: resolved.track.artistUsername,
     requirements,
+    spotifyArtistId,
+    spotifyArtistName,
   });
 
   return NextResponse.json({ ok: true, id: gate.id, slug: gate.slug });
 }
 
-/** Defaults to requiring everything; only explicit `false` turns a step off. */
+/** SoundCloud steps default on; Spotify steps default off. */
 export function parseRequirements(value: unknown): GateRequirements {
   const source = (value ?? {}) as Record<string, unknown>;
-  const requirements = {} as GateRequirements;
+  const requirements = { ...DEFAULT_GATE_REQUIREMENTS };
   for (const kind of GATE_ACTION_KINDS) {
-    requirements[kind] = source[kind] !== false;
+    if (source[kind] === true) requirements[kind] = true;
+    if (source[kind] === false) requirements[kind] = false;
   }
   return requirements;
 }

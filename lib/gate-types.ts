@@ -11,15 +11,34 @@
  * between them, so a download URL cannot reach the client by accident.
  */
 
-/** The four things a fan can be asked to do on SoundCloud. */
-export type GateActionKind = "like" | "repost" | "comment" | "follow";
+/**
+ * SoundCloud writes plus Spotify honor-system steps. Spotify kinds are
+ * fulfilled by opening Spotify and attesting; they never call a fan token.
+ */
+export type GateActionKind =
+  | "like"
+  | "repost"
+  | "comment"
+  | "follow"
+  | "spotify_follow";
 
 export const GATE_ACTION_KINDS: readonly GateActionKind[] = [
   "like",
   "repost",
   "comment",
   "follow",
+  "spotify_follow",
 ] as const;
+
+export type GateActionProvider = "soundcloud" | "spotify";
+
+export function actionProvider(kind: GateActionKind): GateActionProvider {
+  return kind.startsWith("spotify_") ? "spotify" : "soundcloud";
+}
+
+export function isSpotifyAction(kind: GateActionKind): boolean {
+  return actionProvider(kind) === "spotify";
+}
 
 export type GateStatus = "draft" | "published" | "archived";
 
@@ -27,6 +46,18 @@ export type GateDeliveryKind = "blob" | "external_url";
 
 /** Which actions this gate requires before the download unlocks. */
 export type GateRequirements = Record<GateActionKind, boolean>;
+
+/**
+ * New gates require the SoundCloud actions and leave Spotify off until an
+ * admin ticks it. `parseRequirements` starts from this object.
+ */
+export const DEFAULT_GATE_REQUIREMENTS: GateRequirements = {
+  like: true,
+  repost: true,
+  comment: true,
+  follow: true,
+  spotify_follow: false,
+};
 
 /** Full database row. Server-side only in practice — see `PublicGate`. */
 export type GateRecord = {
@@ -46,6 +77,9 @@ export type GateRecord = {
   /** Track owner — the follow target when `requirements.follow` is set. */
   artistUserUrn: string;
   artistUsername: string;
+  /** Null means the site default (WOMP). */
+  spotifyArtistId: string | null;
+  spotifyArtistName: string | null;
   requirements: GateRequirements;
   deliveryKind: GateDeliveryKind;
   /** Vercel Blob URL. Never sent to the client. */
@@ -72,15 +106,24 @@ export type PublicGate = {
   requirements: GateRequirements;
   /** Present so the UI can label the download button. */
   deliveryFilename: string | null;
+  /** Public Spotify artist page the follow step opens. */
+  spotifyArtistName: string;
+  spotifyArtistUrl: string;
 };
 
-/** The connected fan, as returned by `GET /me`. */
+/** The connected SoundCloud fan, as returned by `GET /me`. */
 export type GateFanIdentity = {
   userUrn: string;
   username: string;
   displayName: string | null;
   avatarUrl: string | null;
   permalinkUrl: string | null;
+};
+
+/** Name + email from the claim cookie / contact form. */
+export type GateClaimIdentity = {
+  firstName: string;
+  email: string;
 };
 
 /**
@@ -93,6 +136,7 @@ export type GateProgress = {
   repost: string | null;
   comment: string | null;
   follow: string | null;
+  spotifyFollow: string | null;
   emailCapturedAt: string | null;
   unlockedAt: string | null;
 };
@@ -102,6 +146,7 @@ export const EMPTY_PROGRESS: GateProgress = {
   repost: null,
   comment: null,
   follow: null,
+  spotifyFollow: null,
   emailCapturedAt: null,
   unlockedAt: null,
 };
@@ -110,8 +155,8 @@ export const EMPTY_PROGRESS: GateProgress = {
 export type GateUnlockRecord = {
   id: string;
   gateId: string;
-  soundcloudUserUrn: string;
-  soundcloudUsername: string;
+  soundcloudUserUrn: string | null;
+  soundcloudUsername: string | null;
   firstName: string | null;
   email: string | null;
   marketingConsentAt: string | null;
@@ -124,6 +169,8 @@ export type GateUnlockRecord = {
 /** What `/gate/[slug]` hands to the interactive client component. */
 export type GateViewState = {
   gate: PublicGate;
+  /** Present once the fan has submitted (or resumed) name + email. */
+  claim: GateClaimIdentity | null;
   fan: GateFanIdentity | null;
   progress: GateProgress;
   /** True once every required action is done AND we have an email. */
@@ -170,10 +217,16 @@ export const GATE_ACTION_LABELS: Record<
     done: "Commented",
   },
   follow: {
-    title: "Follow the artist",
+    title: "Follow on SoundCloud",
     helper: "Get new releases in your SoundCloud feed.",
     cta: "Follow",
     done: "Following",
+  },
+  spotify_follow: {
+    title: "Follow on Spotify",
+    helper: "Opens the artist on Spotify. Follow there, then come back.",
+    cta: "I followed",
+    done: "Followed",
   },
 };
 
@@ -211,7 +264,14 @@ export function requiredActions(
   return GATE_ACTION_KINDS.filter((kind) => requirements[kind]);
 }
 
-/** SoundCloud actions plus the contact form, which is always last. */
+/** Progress field for a given action kind. */
+export function progressKey(
+  kind: GateActionKind,
+): Exclude<keyof GateProgress, "emailCapturedAt" | "unlockedAt"> {
+  return kind === "spotify_follow" ? "spotifyFollow" : kind;
+}
+
+/** SoundCloud / Spotify actions plus the contact form, which is always first. */
 export type GateFlowStep = GateActionKind | "contact";
 
 /**
@@ -222,10 +282,10 @@ export function incompleteStep(
   requirements: GateRequirements,
   progress: GateProgress,
 ): GateFlowStep | null {
-  for (const kind of requiredActions(requirements)) {
-    if (progress[kind] === null) return kind;
-  }
   if (!progress.emailCapturedAt) return "contact";
+  for (const kind of requiredActions(requirements)) {
+    if (progress[progressKey(kind)] === null) return kind;
+  }
   return null;
 }
 
@@ -235,7 +295,9 @@ export function gateStepCounts(
   progress: GateProgress,
 ): { done: number; total: number } {
   const actions = requiredActions(requirements);
-  const actionDone = actions.filter((kind) => progress[kind] !== null).length;
+  const actionDone = actions.filter(
+    (kind) => progress[progressKey(kind)] !== null,
+  ).length;
   const contactDone = progress.emailCapturedAt ? 1 : 0;
   return { done: actionDone + contactDone, total: actions.length + 1 };
 }
@@ -250,5 +312,7 @@ export function isUnlocked(
   progress: GateProgress,
 ): boolean {
   if (!progress.emailCapturedAt) return false;
-  return requiredActions(requirements).every((kind) => progress[kind] !== null);
+  return requiredActions(requirements).every(
+    (kind) => progress[progressKey(kind)] !== null,
+  );
 }

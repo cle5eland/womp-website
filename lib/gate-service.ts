@@ -1,11 +1,12 @@
 import "server-only";
 
 import { isDatabaseConfigured } from "@/lib/db";
+import type { GateClaim } from "@/lib/gate-claim";
 import {
+  attachSoundcloud,
   captureContact,
-  getOrCreateUnlock,
   getPublishedGateBySlug,
-  getUnlock,
+  getUnlockByEmail,
   markAction,
   recordDownload,
   refreshUnlockState,
@@ -14,13 +15,16 @@ import {
 import {
   EMPTY_PROGRESS,
   type GateActionKind,
+  type GateClaimIdentity,
   type GateProgress,
   type GateRecord,
   type GateUnlockRecord,
   type GateViewState,
   MAX_COMMENT_LENGTH,
   MIN_COMMENT_LENGTH,
+  actionProvider,
   isUnlocked,
+  progressKey,
 } from "@/lib/gate-types";
 import { isSameSoundcloudUser, performAction } from "@/lib/soundcloud-actions";
 import { type FanSession, isMockMode } from "@/lib/soundcloud-user-auth";
@@ -30,9 +34,8 @@ import { type FanSession, isMockMode } from "@/lib/soundcloud-user-auth";
  * place: which actions a gate permits, when an action may be skipped, and when
  * a download is authorized.
  *
- * The invariant worth protecting: a gate only ever performs actions it
- * actually requires, only once each, and only for a fan who authenticated in
- * this browser. Route handlers do not get to decide any of that.
+ * Identity is email (the claim cookie). SoundCloud's session is only required
+ * for SoundCloud writes. Spotify steps are honor-system attestations.
  */
 
 export type ServiceFailure = {
@@ -49,7 +52,7 @@ export type ServiceFailure = {
 /** Everything `/gate/[slug]` needs to render, or `null` if there is no gate. */
 export async function loadGateViewState(
   slug: string,
-  session: FanSession | null,
+  input: { claim: GateClaim | null; session: FanSession | null },
 ): Promise<GateViewState | null> {
   if (!isDatabaseConfigured()) return null;
 
@@ -57,16 +60,17 @@ export async function loadGateViewState(
   if (!gate) return null;
 
   let progress: GateProgress = EMPTY_PROGRESS;
-  if (session) {
-    // Read-only here: a page view should not create rows for a fan who is only
-    // looking. The row appears on their first action.
-    const existing = await getUnlock(gate.id, session.fan.userUrn);
+  let claim: GateClaimIdentity | null = null;
+  if (input.claim) {
+    claim = input.claim;
+    const existing = await getUnlockByEmail(gate.id, input.claim.email);
     if (existing) progress = existing.progress;
   }
 
   return {
     gate: toPublicGate(gate),
-    fan: session?.fan ?? null,
+    claim,
+    fan: input.session?.fan ?? null,
     progress,
     unlocked: isUnlocked(gate.requirements, progress),
     mockMode: isMockMode(),
@@ -82,6 +86,7 @@ export type ApplyActionInput = {
   action: GateActionKind;
   commentBody?: string;
   session: FanSession | null;
+  claim: GateClaim | null;
 };
 
 export type ApplyActionSuccess = {
@@ -91,41 +96,55 @@ export type ApplyActionSuccess = {
 };
 
 /**
- * Perform one action on the fan's behalf and record it.
+ * Perform one action and record it.
  *
- * Ordering matters here. We check "already done" *before* calling SoundCloud,
- * which is what makes a double-clicked comment button safe — the comment
- * endpoint creates a new comment on every call, so the stored timestamp is the
- * only thing standing between a refresh and a spammed track.
+ * SoundCloud kinds still hit the API with the fan token. Spotify kinds are an
+ * attestation: the fan opened Spotify and says they followed. We check
+ * "already done" before any write so a double-clicked comment is safe.
  */
 export async function applyAction(
   input: ApplyActionInput,
 ): Promise<ApplyActionSuccess | ServiceFailure> {
-  const { slug, action, commentBody, session } = input;
+  const { slug, action, commentBody, session, claim } = input;
 
   if (!isDatabaseConfigured()) {
     return { ok: false, status: 503, error: "Gates are not configured." };
   }
-  if (!session) {
+  if (!claim) {
     return {
       ok: false,
       status: 401,
-      error: "Connect your SoundCloud account first.",
-      reconnect: true,
+      error: "Enter your name and email first.",
     };
   }
 
   const gate = await getPublishedGateBySlug(slug);
   if (!gate) return { ok: false, status: 404, error: "Gate not found." };
 
-  // A gate may only ever do what it advertises. Anything else would be an
-  // action the fan was never shown, let alone deliberately initiated.
   if (!gate.requirements[action]) {
     return {
       ok: false,
       status: 400,
       error: "This gate does not ask for that action.",
     };
+  }
+
+  const unlock = await getUnlockByEmail(gate.id, claim.email);
+  if (!unlock || !unlock.progress.emailCapturedAt) {
+    return {
+      ok: false,
+      status: 401,
+      error: "Enter your name and email first.",
+    };
+  }
+
+  if (unlock.progress[progressKey(action)]) {
+    return finish(gate, unlock);
+  }
+
+  if (actionProvider(action) === "spotify") {
+    const updated = await markAction(unlock.id, action);
+    return finish(gate, updated ?? unlock);
   }
 
   const trimmedComment = commentBody?.trim() ?? "";
@@ -146,11 +165,25 @@ export async function applyAction(
     }
   }
 
-  const unlock = await getOrCreateUnlock(gate.id, session.fan);
+  if (!session) {
+    return {
+      ok: false,
+      status: 401,
+      error: "Connect your SoundCloud account first.",
+      reconnect: true,
+    };
+  }
 
-  // Already done — return current state without touching the API.
-  if (unlock.progress[action]) {
-    return finish(gate, unlock);
+  const attached = await attachSoundcloud(unlock, session.fan);
+  if ("conflict" in attached) {
+    return {
+      ok: false,
+      status: 409,
+      error:
+        attached.conflict === "other-account"
+          ? "This download is tied to a different SoundCloud account. Use the one you connected first."
+          : "That SoundCloud account already unlocked this download with a different email.",
+    };
   }
 
   if (session.tokenExpired) {
@@ -175,14 +208,14 @@ export async function applyAction(
       action,
       fan: session.fan.username,
     });
-    const updated = await markAction(gate.id, session.fan.userUrn, action);
-    return finish(gate, updated ?? unlock);
+    const updated = await markAction(attached.id, action);
+    return finish(gate, updated ?? attached);
   }
 
   let result: Awaited<ReturnType<typeof performAction>>;
   try {
     result = await performAction({
-      action,
+      action: action as Exclude<GateActionKind, "spotify_follow">,
       accessToken: session.accessToken,
       track: { trackUrn: gate.trackUrn, trackId: gate.trackId },
       artist: { artistUserUrn: gate.artistUserUrn },
@@ -216,8 +249,8 @@ export async function applyAction(
     return { ok: false, ...describeFailure(result.reason, result.message) };
   }
 
-  const updated = await markAction(gate.id, session.fan.userUrn, action);
-  return finish(gate, updated ?? unlock);
+  const updated = await markAction(attached.id, action);
+  return finish(gate, updated ?? attached);
 }
 
 function describeFailure(
@@ -269,7 +302,7 @@ async function finish(
 }
 
 // ---------------------------------------------------------------------------
-// Contact capture
+// Contact capture (step 1 — this is the identity)
 // ---------------------------------------------------------------------------
 
 /** Deliberately permissive — we reject obvious nonsense, not unusual domains. */
@@ -280,24 +313,18 @@ export async function applyContact(input: {
   firstName: string;
   email: string;
   marketingConsent: boolean;
-  session: FanSession | null;
-}): Promise<ApplyActionSuccess | ServiceFailure> {
-  const { slug, session } = input;
+}): Promise<
+  | (ApplyActionSuccess & { claim: GateClaim })
+  | ServiceFailure
+> {
+  const { slug } = input;
 
   if (!isDatabaseConfigured()) {
     return { ok: false, status: 503, error: "Gates are not configured." };
   }
-  if (!session) {
-    return {
-      ok: false,
-      status: 401,
-      error: "Connect your SoundCloud account first.",
-      reconnect: true,
-    };
-  }
 
   const firstName = input.firstName.trim();
-  const email = input.email.trim();
+  const email = input.email.trim().toLowerCase();
 
   if (firstName.length === 0 || firstName.length > 100) {
     return { ok: false, status: 400, error: "Enter your first name." };
@@ -309,24 +336,24 @@ export async function applyContact(input: {
     return {
       ok: false,
       status: 400,
-      error: "Join the email list to unlock the download.",
+      error: "Join the email list to continue.",
     };
   }
 
   const gate = await getPublishedGateBySlug(slug);
   if (!gate) return { ok: false, status: 404, error: "Gate not found." };
 
-  await getOrCreateUnlock(gate.id, session.fan);
-  const updated = await captureContact(gate.id, session.fan.userUrn, {
+  const updated = await captureContact(gate.id, {
     firstName,
     email,
     marketingConsent: input.marketingConsent,
   });
 
-  if (!updated) {
-    return { ok: false, status: 500, error: "Could not save your details." };
-  }
-  return finish(gate, updated);
+  const settled = await finish(gate, updated);
+  return {
+    ...settled,
+    claim: { firstName, email },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -341,32 +368,31 @@ export type DownloadGrant = {
 
 /**
  * Decide whether this fan may download, re-deriving the answer from stored
- * progress rather than trusting anything the client sends. Note this does not
- * require a live SoundCloud token: the entitlement was earned earlier, so a fan
- * returning next week still gets their file.
+ * progress rather than trusting anything the client sends. Entitlement is tied
+ * to the email claim, not a live SoundCloud token, so a fan returning next
+ * week still gets their file.
  */
 export async function authorizeDownload(input: {
   slug: string;
-  session: FanSession | null;
+  claim: GateClaim | null;
 }): Promise<DownloadGrant | ServiceFailure> {
-  const { slug, session } = input;
+  const { slug, claim } = input;
 
   if (!isDatabaseConfigured()) {
     return { ok: false, status: 503, error: "Gates are not configured." };
   }
-  if (!session) {
+  if (!claim) {
     return {
       ok: false,
       status: 401,
-      error: "Connect your SoundCloud account first.",
-      reconnect: true,
+      error: "Enter your name and email to download.",
     };
   }
 
   const gate = await getPublishedGateBySlug(slug);
   if (!gate) return { ok: false, status: 404, error: "Gate not found." };
 
-  const unlock = await getUnlock(gate.id, session.fan.userUrn);
+  const unlock = await getUnlockByEmail(gate.id, claim.email);
   if (!unlock || !isUnlocked(gate.requirements, unlock.progress)) {
     return {
       ok: false,

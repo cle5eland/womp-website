@@ -8,6 +8,9 @@ SoundCloud account, likes / reposts / comments on the track, and in exchange get
 a download link for a file we host. Think Hypeddit, but first-party and on
 `djwomp.com`.
 
+Proposed Spotify follow step (second provider, same gate, open-then-attest):
+see [`docs/spotify-gate-plan.md`](spotify-gate-plan.md).
+
 This document records what the SoundCloud API actually allows, the rules we have
 to design around, and the architecture that follows from those two things.
 

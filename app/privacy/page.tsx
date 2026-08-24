@@ -40,28 +40,30 @@ export default function PrivacyPage() {
           <Section title="What this covers">
             <p>
               This page describes what happens when you use a free download page
-              on this site — the ones that ask you to connect your SoundCloud
-              account. The rest of the site does not collect anything about you.
+              on this site. The rest of the site does not collect anything about
+              you.
             </p>
           </Section>
 
           <Section title="What we collect">
             <ul className="space-y-2">
               <Item>
-                Your SoundCloud username and account identifier, so we know who
-                has unlocked which download.
+                The first name and email address you type into the form. That is
+                how we recognise you if you come back for the same download.
               </Item>
               <Item>
-                The first name and email address you type into the form.
+                Your SoundCloud username and account identifier, if you connect
+                SoundCloud for a like, repost, comment, or follow step.
               </Item>
               <Item>
-                A timestamp for each action you complete — like, repost, comment,
-                follow — and a count of how many times you downloaded the file.
+                A timestamp for each step you complete — including when you
+                confirm a Spotify follow — and a count of how many times you
+                downloaded the file.
               </Item>
               <Item>
                 Your agreement to receive occasional emails about new music and
-                shows, which is required to complete a download. You can
-                unsubscribe any time.
+                shows, which is required to continue. You can unsubscribe any
+                time.
               </Item>
             </ul>
           </Section>
@@ -81,6 +83,11 @@ export default function PrivacyPage() {
                 Anything else from your SoundCloud account — we do not read your
                 library, your followers, or your listening history.
               </Item>
+              <Item>
+                A Spotify login, user id, or access token. A Spotify step only
+                opens Spotify in a new tab; we record that you confirmed the
+                step, not who you are on Spotify.
+              </Item>
             </ul>
           </Section>
 
@@ -93,6 +100,15 @@ export default function PrivacyPage() {
               actions at once. You can undo any of them from SoundCloud at any
               time, and you can revoke this site&apos;s access entirely in your
               SoundCloud account settings.
+            </p>
+          </Section>
+
+          <Section title="Spotify steps">
+            <p>
+              If a download asks you to follow on Spotify, we send you to the
+              artist&apos;s Spotify page. Follow happens in Spotify, not in our
+              app. Coming back and pressing &quot;I followed&quot; is how we
+              mark that step done. We cannot see whether you actually followed.
             </p>
           </Section>
 

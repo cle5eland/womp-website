@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 
+import {
+  CLAIM_COOKIE,
+  claimCookieOptions,
+  createClaimToken,
+  getSessionSecret,
+} from "@/lib/gate-claim";
 import { applyContact } from "@/lib/gate-service";
-import { readSessionFromCookies } from "@/lib/gate-request";
 import type { GateActionResponse } from "@/lib/gate-types";
 
 /**
  * Records the fan's first name, email, and required email-list opt-in — the
- * last step before the download unlocks.
+ * first step, and the identity we recognise them by on later visits.
  *
  * Separate from `/action` because it touches no SoundCloud API and has its own
  * consent semantics: `marketingConsent` must be true, and the timestamp we
@@ -36,14 +41,11 @@ export async function POST(
     return json({ ok: false, error: "Name and email are required." }, 400);
   }
 
-  const session = await readSessionFromCookies();
-
   const result = await applyContact({
     slug,
     firstName: payload.firstName,
     email: payload.email,
     marketingConsent: payload.marketingConsent === true,
-    session,
   });
 
   if (!result.ok) {
@@ -53,10 +55,19 @@ export async function POST(
     );
   }
 
-  return json(
+  const secret = getSessionSecret();
+  const response = json(
     { ok: true, progress: result.progress, unlocked: result.unlocked },
     200,
   );
+  if (secret) {
+    response.cookies.set(
+      CLAIM_COOKIE,
+      createClaimToken(result.claim, secret),
+      claimCookieOptions(),
+    );
+  }
+  return response;
 }
 
 function json(body: GateActionResponse, status: number) {

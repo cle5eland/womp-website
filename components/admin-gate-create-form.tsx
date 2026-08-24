@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import {
+  DEFAULT_GATE_REQUIREMENTS,
   GATE_ACTION_KINDS,
   GATE_ACTION_LABELS,
   type GateActionKind,
@@ -11,20 +12,14 @@ import {
   normalizeSlug,
 } from "@/lib/gate-types";
 
-const ALL_REQUIRED: GateRequirements = {
-  like: true,
-  repost: true,
-  comment: true,
-  follow: true,
-};
-
 export function AdminGateCreateForm() {
   const router = useRouter();
 
   const [soundcloudUrl, setSoundcloudUrl] = useState("");
   const [slug, setSlug] = useState("");
   const [requirements, setRequirements] =
-    useState<GateRequirements>(ALL_REQUIRED);
+    useState<GateRequirements>(DEFAULT_GATE_REQUIREMENTS);
+  const [spotifyArtistUrl, setSpotifyArtistUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,6 +39,7 @@ export function AdminGateCreateForm() {
           soundcloudUrl,
           slug: normalizeSlug(slug),
           requirements,
+          spotifyArtistUrl,
         }),
       });
       const data = (await res.json()) as { id?: string; error?: string };
@@ -112,11 +108,28 @@ export function AdminGateCreateForm() {
           ))}
         </div>
         <p className="mt-3 text-[10px] leading-relaxed text-zinc-600">
-          Fans press each action separately and write their own comment text.
-          SoundCloud&apos;s API terms only allow actions a user deliberately
-          initiates, so there is no combined one-click option.
+          SoundCloud actions are performed through the fan&apos;s connected
+          account, one click each. Spotify follow opens the artist page and
+          asks them to attest.
         </p>
       </fieldset>
+
+      {requirements.spotify_follow ? (
+        <Field
+          label="Spotify artist URL"
+          hint="Leave blank to use WOMP. Paste a different artist for a collab or side project."
+        >
+          <input
+            type="text"
+            value={spotifyArtistUrl}
+            onChange={(event) => setSpotifyArtistUrl(event.target.value)}
+            placeholder="https://open.spotify.com/artist/…"
+            inputMode="url"
+            autoComplete="off"
+            className={inputClass}
+          />
+        </Field>
+      ) : null}
 
       {error ? (
         <p role="alert" className="text-xs text-red-300">

@@ -27,11 +27,12 @@ export type AdminGateView = {
   deliveryExternalUrl: string | null;
   deliveryFilename: string | null;
   deliverySizeBytes: number | null;
+  spotifyArtistUrl: string;
 };
 
 export type AdminUnlockRow = {
   id: string;
-  username: string;
+  username: string | null;
   firstName: string | null;
   email: string | null;
   unlockedAt: string | null;
@@ -57,6 +58,7 @@ export function AdminGateEditor({
   const [title, setTitle] = useState(gate.title);
   const [requirements, setRequirements] = useState(gate.requirements);
   const [externalUrl, setExternalUrl] = useState(gate.deliveryExternalUrl ?? "");
+  const [spotifyArtistUrl, setSpotifyArtistUrl] = useState(gate.spotifyArtistUrl);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -92,7 +94,7 @@ export function AdminGateEditor({
   async function saveDetails(event: React.FormEvent) {
     event.preventDefault();
     const nextTitle = title.trim() || gate.trackTitle;
-    if (await patch({ title: nextTitle, requirements }, "details")) {
+    if (await patch({ title: nextTitle, requirements, spotifyArtistUrl }, "details")) {
       setTitle(nextTitle);
       setNotice("Saved.");
     }
@@ -244,6 +246,24 @@ export function AdminGateEditor({
               ))}
             </div>
           </fieldset>
+          {requirements.spotify_follow ? (
+            <label className="block">
+              <span className={labelClass}>Spotify artist URL</span>
+              <input
+                type="text"
+                value={spotifyArtistUrl}
+                onChange={(event) => setSpotifyArtistUrl(event.target.value)}
+                placeholder="https://open.spotify.com/artist/… (blank = WOMP)"
+                inputMode="url"
+                autoComplete="off"
+                className={inputClass}
+              />
+              <span className="mt-1.5 block text-[10px] text-zinc-600">
+                Leave blank to use WOMP. Paste a different artist for a collab
+                or side project.
+              </span>
+            </label>
+          ) : null}
           <Button type="submit" busy={busy === "details"}>
             Save details
           </Button>
@@ -357,9 +377,9 @@ export function AdminGateEditor({
             <table className="w-full min-w-[32rem] text-left text-xs">
               <thead>
                 <tr className="text-[9px] uppercase tracking-[0.2em] text-zinc-600">
-                  <th className="pb-2 pr-4 font-medium">SoundCloud</th>
-                  <th className="pb-2 pr-4 font-medium">Name</th>
                   <th className="pb-2 pr-4 font-medium">Email</th>
+                  <th className="pb-2 pr-4 font-medium">Name</th>
+                  <th className="pb-2 pr-4 font-medium">SoundCloud</th>
                   <th className="pb-2 pr-4 font-medium">Unlocked</th>
                   <th className="pb-2 font-medium">DLs</th>
                 </tr>
@@ -367,9 +387,11 @@ export function AdminGateEditor({
               <tbody className="divide-y divide-white/[0.06]">
                 {unlocks.map((row) => (
                   <tr key={row.id} className="text-zinc-400">
-                    <td className="py-2 pr-4 text-zinc-300">@{row.username}</td>
+                    <td className="py-2 pr-4 text-zinc-300">{row.email ?? "—"}</td>
                     <td className="py-2 pr-4">{row.firstName ?? "—"}</td>
-                    <td className="py-2 pr-4">{row.email ?? "—"}</td>
+                    <td className="py-2 pr-4">
+                      {row.username ? `@${row.username}` : "—"}
+                    </td>
                     <td className="py-2 pr-4">
                       {row.unlockedAt
                         ? new Date(row.unlockedAt).toLocaleDateString()

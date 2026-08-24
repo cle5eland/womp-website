@@ -6,8 +6,8 @@ import { getGateById, listUnlocks } from "@/lib/gate-store";
 /**
  * CSV export of a gate's unlocks — the mailing list the gate exists to build.
  *
- * Only completed unlocks are exported: a row where the fan bailed halfway has
- * no email on it and is not a contact.
+ * Only completed unlocks are exported. Email is collected first, but a fan who
+ * bailed halfway is not yet a contact we should mail.
  */
 export async function GET(
   _request: Request,
@@ -36,6 +36,7 @@ export async function GET(
     "reposted_at",
     "commented_at",
     "followed_at",
+    "spotify_followed_at",
     "unlocked_at",
     "download_count",
   ];
@@ -46,12 +47,13 @@ export async function GET(
       [
         row.firstName ?? "",
         row.email ?? "",
-        row.soundcloudUsername,
+        row.soundcloudUsername ?? "",
         row.marketingConsentAt ? "yes" : "no",
         row.progress.like ?? "",
         row.progress.repost ?? "",
         row.progress.comment ?? "",
         row.progress.follow ?? "",
+        row.progress.spotifyFollow ?? "",
         row.progress.unlockedAt ?? "",
         String(row.downloadCount),
       ]

@@ -12,6 +12,7 @@ import {
   type GateRequirements,
   type GateStatus,
 } from "@/lib/gate-types";
+import { resolveAdminSpotifyArtist } from "@/lib/spotify";
 
 const STATUSES: GateStatus[] = ["draft", "published", "archived"];
 
@@ -62,6 +63,26 @@ export async function PATCH(
       requirements[kind] = source?.[kind] === true;
     }
     patch.requirements = requirements;
+  }
+
+  if (payload.spotifyArtistUrl !== undefined) {
+    if (typeof payload.spotifyArtistUrl !== "string") {
+      return NextResponse.json(
+        { error: "Spotify artist URL must be a string." },
+        { status: 400 },
+      );
+    }
+    const spotify = await resolveAdminSpotifyArtist(payload.spotifyArtistUrl);
+    if ("error" in spotify) {
+      return NextResponse.json({ error: spotify.error }, { status: 422 });
+    }
+    if ("empty" in spotify) {
+      patch.spotifyArtistId = null;
+      patch.spotifyArtistName = null;
+    } else {
+      patch.spotifyArtistId = spotify.id;
+      patch.spotifyArtistName = spotify.name;
+    }
   }
 
   // Delivery: either a Blob upload the client just completed, or an
