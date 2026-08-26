@@ -101,6 +101,19 @@ export const recordLabels: readonly RecordLabel[] = [
 export const performancesSupportCopy =
   "Support for: TVBOO, Jkyl & Hyde, Chef Boyarbeatz, Shanghai Doom, Pierce, SubDocta, and Stylust";
 
+/** Highlights → Festivals — festival appearances (name + link to the festival's own site). */
+export type Festival = {
+  readonly name: string;
+  readonly url: string;
+  /** Shown under the festival name (defaults to “Official site →”). */
+  readonly linkLabel?: string;
+};
+
+export const festivals: readonly Festival[] = [
+  { name: "Friendzy Fest", url: "https://friendzyfest.ca/" },
+  { name: "Mountain Wubz", url: "https://www.mountainwubz.com/" },
+];
+
 /** Canonical artist page — embeds, fallbacks, and social links. */
 export const spotifyArtistUrl =
   "https://open.spotify.com/artist/64XV9aZxwoLuxf9tgvu9Pb?si=5fb3981b813a4035";

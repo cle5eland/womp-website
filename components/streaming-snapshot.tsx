@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 
 import { InstagramIcon, SoundcloudIcon, SpotifyIcon } from "@/components/platform-icons";
 import { EqualizerBars, StatTile } from "@/components/stat-tile";
-import { performancesSupportCopy, profileHighlightImage, recordLabels } from "@/lib/epk-data";
+import { festivals, performancesSupportCopy, profileHighlightImage, recordLabels } from "@/lib/epk-data";
 import type { InstagramStatsBundle } from "@/lib/instagram-types";
 import type { SoundcloudStatsBundle } from "@/lib/soundcloud-types";
 import type { SpotifyStatsBundle } from "@/lib/spotify";
@@ -293,6 +293,29 @@ export function StreamingSnapshot({
 
           <div className="min-w-0 md:border-l md:border-[var(--accent)]/25 md:pl-8">
             <p className="text-[9px] font-medium uppercase tracking-[0.32em] text-[var(--accent)]">
+              Festivals
+            </p>
+            <ul className="mt-4 flex flex-col gap-3">
+              {festivals.map((festival) => (
+                <li key={festival.name}>
+                  <a
+                    href={festival.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group block border-b border-white/10 pb-3 text-sm font-medium text-zinc-200 transition last:border-0 hover:text-white"
+                  >
+                    <span className="font-display text-xl uppercase tracking-wide text-white group-hover:text-[var(--accent)]">
+                      {festival.name}
+                    </span>
+                    <span className="mt-1 block text-[10px] font-normal uppercase tracking-[0.2em] text-zinc-500">
+                      {festival.linkLabel ?? "Official site →"}
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+
+            <p className="mt-6 text-[9px] font-medium uppercase tracking-[0.32em] text-[var(--accent)]">
               Performances
             </p>
             <p className="mt-4 text-sm leading-relaxed text-zinc-200 sm:text-base">
