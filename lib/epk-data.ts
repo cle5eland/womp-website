@@ -90,6 +90,11 @@ export const recordLabels: readonly RecordLabel[] = [
     url: "https://soundcloud.com/subcarbon",
     linkLabel: "SoundCloud →",
   },
+  {
+    name: "Psychocybin Records",
+    url: "https://on.soundcloud.com/fzjPA0Dx20iBiPltCW",
+    linkLabel: "SoundCloud →",
+  },
 ];
 
 /** Highlights → Performances — support billing copy. */
