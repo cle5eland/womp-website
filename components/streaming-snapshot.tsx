@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 
 import { InstagramIcon, SoundcloudIcon, SpotifyIcon } from "@/components/platform-icons";
 import { EqualizerBars, StatTile } from "@/components/stat-tile";
-import { performancesSupportCopy, profileHighlightImage, recordLabels } from "@/lib/epk-data";
+import { festivals, performancesSupportCopy, profileHighlightImage, recordLabels } from "@/lib/epk-data";
 import type { InstagramStatsBundle } from "@/lib/instagram-types";
 import type { SoundcloudStatsBundle } from "@/lib/soundcloud-types";
 import type { SpotifyStatsBundle } from "@/lib/spotify";
@@ -298,6 +298,27 @@ export function StreamingSnapshot({
             <p className="mt-4 text-sm leading-relaxed text-zinc-200 sm:text-base">
               {performancesSupportCopy}
             </p>
+
+            <p className="mt-6 text-[9px] font-medium uppercase tracking-[0.32em] text-[var(--accent)]">
+              Festivals
+            </p>
+            <ul className="mt-4 flex flex-wrap gap-3">
+              {festivals.map((festival) => (
+                <li key={festival.name}>
+                  <a
+                    href={festival.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group inline-flex items-center gap-2 border border-white/15 bg-black/30 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-200 transition hover:border-[var(--accent)]/60 hover:text-[var(--accent)]"
+                  >
+                    {festival.name}
+                    <span className="text-[var(--accent)] opacity-0 transition group-hover:opacity-100">
+                      →
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </motion.div>
