@@ -293,13 +293,6 @@ export function StreamingSnapshot({
 
           <div className="min-w-0 md:border-l md:border-[var(--accent)]/25 md:pl-8">
             <p className="text-[9px] font-medium uppercase tracking-[0.32em] text-[var(--accent)]">
-              Performances
-            </p>
-            <p className="mt-4 text-sm leading-relaxed text-zinc-200 sm:text-base">
-              {performancesSupportCopy}
-            </p>
-
-            <p className="mt-6 text-[9px] font-medium uppercase tracking-[0.32em] text-[var(--accent)]">
               Festivals
             </p>
             <ul className="mt-4 flex flex-col gap-3">
@@ -321,6 +314,13 @@ export function StreamingSnapshot({
                 </li>
               ))}
             </ul>
+
+            <p className="mt-6 text-[9px] font-medium uppercase tracking-[0.32em] text-[var(--accent)]">
+              Performances
+            </p>
+            <p className="mt-4 text-sm leading-relaxed text-zinc-200 sm:text-base">
+              {performancesSupportCopy}
+            </p>
           </div>
         </div>
       </motion.div>
