@@ -302,18 +302,20 @@ export function StreamingSnapshot({
             <p className="mt-6 text-[9px] font-medium uppercase tracking-[0.32em] text-[var(--accent)]">
               Festivals
             </p>
-            <ul className="mt-4 flex flex-wrap gap-3">
+            <ul className="mt-4 flex flex-col gap-3">
               {festivals.map((festival) => (
                 <li key={festival.name}>
                   <a
                     href={festival.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="group inline-flex items-center gap-2 border border-white/15 bg-black/30 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-200 transition hover:border-[var(--accent)]/60 hover:text-[var(--accent)]"
+                    className="group block border-b border-white/10 pb-3 text-sm font-medium text-zinc-200 transition last:border-0 hover:text-white"
                   >
-                    {festival.name}
-                    <span className="text-[var(--accent)] opacity-0 transition group-hover:opacity-100">
-                      →
+                    <span className="font-display text-xl uppercase tracking-wide text-white group-hover:text-[var(--accent)]">
+                      {festival.name}
+                    </span>
+                    <span className="mt-1 block text-[10px] font-normal uppercase tracking-[0.2em] text-zinc-500">
+                      {festival.linkLabel ?? "Official site →"}
                     </span>
                   </a>
                 </li>

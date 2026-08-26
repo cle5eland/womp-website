@@ -101,10 +101,12 @@ export const recordLabels: readonly RecordLabel[] = [
 export const performancesSupportCopy =
   "Support for: TVBOO, Jkyl & Hyde, Chef Boyarbeatz, Shanghai Doom, Pierce, SubDocta, and Stylust";
 
-/** Highlights → Festivals — festival appearances, linking out to each festival's site. */
+/** Highlights → Festivals — festival appearances (name + link to the festival's own site). */
 export type Festival = {
   readonly name: string;
   readonly url: string;
+  /** Shown under the festival name (defaults to “Official site →”). */
+  readonly linkLabel?: string;
 };
 
 export const festivals: readonly Festival[] = [
