@@ -95,11 +95,36 @@ Spotify postponed applying the endpoint changes to *existing* Dev Mode
 integrations, and extended-quota apps are exempt, so the current app may still
 be returning all of it today. That is a reprieve, not a plan.
 
-Net: the only thing Tier 2 adds that Tier 1 cannot is the **popularity index
-(0–100)**. Worth capturing opportunistically — it is a genuinely different
-signal from raw streams — but it must be nullable everywhere and the page has to
-look right without it. Whether we get it at all depends on how the app is
-registered, which is [open question 5](#open-questions).
+Net: the only thing Tier 2 adds that Tier 1 cannot is **popularity, at both the
+artist and the individual track level** — the 0–100 score on `GET /artists/{id}`
+and on `GET /tracks/{id}`. The partner API has no equivalent field; a full
+partner track object is `name`, `uri`, `artists`, `duration`, `trackNumber`,
+`discNumber`, `contentRating`, `playability`, `saved`, and `playcount`, and
+that's the lot.
+
+So we capture popularity per track, opportunistically:
+
+- One `GET /tracks/{id}` per track per day. The batch `GET /tracks?ids=` endpoint
+  was removed, so it's one request each — 11 today, trivially cheap.
+- The column is nullable in `spotify_track_snapshots`, and the page hides the
+  popularity column entirely rather than showing a wall of dashes if the field
+  stops coming back.
+
+Worth being clear about what popularity is and isn't, because it reads like a
+more precise number than it is. It's a **relative, recency-weighted score**
+computed against Spotify's entire catalog, not a count and not a rank among your
+own tracks. Two tracks with identical lifetime streams get different scores if
+one is getting played this week and the other peaked last year. At WOMP's
+current scale most of the catalog will cluster in a narrow band near the bottom
+of the 0–100 range, so day-to-day movement is largely noise.
+
+That's why the design leans on playcount rather than popularity: `playcount`
+deltas give actual streams per day per track, which is strictly more
+informative and comes from the source that isn't being restricted. Popularity is
+a useful secondary signal — it's the closest thing to "is the algorithm
+currently pushing this track" — but it's a column in the tracks table, not the
+backbone of the page. See [open question 5](#open-questions) for confirming
+whether this app still gets the field.
 
 ### 1.3 Tier 3 — Spotify for Artists (not in v1)
 
@@ -173,7 +198,8 @@ spotify_snapshots               -- one row per artist per capture day
 spotify_track_snapshots         -- full catalog, every day
   artist_id, captured_on, track_id
   track_name, album_id, album_name, released_on date null
-  playcount          bigint null
+  playcount          bigint null       -- partner api; the primary signal
+  popularity         integer null      -- web api 0-100; null when unavailable
   top_track_rank     integer null      -- position in topTracks, or null
   primary key (artist_id, captured_on, track_id)
 
@@ -226,8 +252,9 @@ Sequence, roughly 42 requests for today's catalog:
 4. `queryAlbumTracks` per release → per-track playcounts.
 5. `fetchPlaylist` per discovered-on playlist → follower counts, capped at 60
    playlists so a viral moment can't blow the function's time budget.
-6. Optionally `GET /artists/{id}` on the Web API for `popularity`, if creds
-   exist and the field still comes back.
+6. Optionally, if Web API creds exist and the field still comes back:
+   `GET /artists/{id}` for artist popularity, plus one `GET /tracks/{id}` per
+   track for per-track popularity.
 7. Upsert every table, write the `spotify_captures` row.
 
 Requests are sequential with a small delay. This is a handful of reads per day
@@ -310,9 +337,11 @@ SPOTIFY                          Captured 31 Aug 2026 06:04 UTC · partner ✓ �
 └─────────────────────────────────────────────────────────────────────────────────┘
 
 ┌ Tracks ────────────────────────────────────────────────────────────────────────┐
-│  #  Track                 Released     Streams    Δ7d    Δ28d   /day   ▁▂▃▄▅▆▇  │
-│  1  Bounce                2024-xx-xx    69,149   +310   +1,204    44            │
+│  #  Track            Released     Streams    Δ7d    Δ28d   /day  Pop  ▁▂▃▄▅▆▇   │
+│  1  Bounce           2024-xx-xx    69,149   +310   +1,204    44   31            │
 └─────────────────────────────────────────────────────────────────────────────────┘
+   Pop is the Web API's 0-100 popularity score; the column disappears when the
+   field is unavailable rather than rendering a row of dashes.
 
 ┌ Playlists ─────────────────────────┐ ┌ Cities ──────────────────────────────────┐
 │  Sub Low        Spotify   391,186  │ │  Denver        US-CO   116  ▇▇▇▇▇▇▇▇▇▇▇   │
@@ -440,11 +469,23 @@ These change what gets built, so they are worth answering before step 1.
    decide now, annoying to retrofit — it changes the route, the nav, and the
    table names.
 5. **The Spotify app registration.** Is `SPOTIFY_CLIENT_ID` a pre-Nov-2024 app,
-   an extended-quota app, or one registered recently? This decides whether the
-   popularity index is available at all (§1.2). If you can send me a
-   `GET /v1/artists/64XV9aZxwoLuxf9tgvu9Pb` response, or just confirm roughly
-   when the app was created, I'll size Tier 2 accordingly — the design works
-   either way, it just loses one metric.
+   an extended-quota app, or one registered recently? This decides whether
+   popularity — artist and per-track — still comes back (§1.2). I can't test it
+   from here: the anonymous web-player token that unlocks the partner API is
+   deliberately 429'd against `api.spotify.com`, so confirming needs the real
+   client credentials. Easiest check, run locally with `.env.local` loaded:
+
+   ```bash
+   TOKEN=$(curl -s -X POST https://accounts.spotify.com/api/token \
+     -d grant_type=client_credentials \
+     -u "$SPOTIFY_CLIENT_ID:$SPOTIFY_CLIENT_SECRET" | jq -r .access_token)
+   curl -s -H "Authorization: Bearer $TOKEN" \
+     https://api.spotify.com/v1/tracks/5lWRSAQZOMK9FMvEWIeLZn | jq '.name, .popularity'
+   ```
+
+   A number means we capture it. `null` or a missing key means the field is
+   already gone and the tracks table drops the column. The design works either
+   way — playcount, not popularity, is the backbone.
 6. **Cadence and cron budget.** Daily at 06:00 UTC is planned; the underlying
    numbers only move daily, so hourly would add 24× the requests and no signal.
    This would be the fourth entry in `vercel.json` — any plan limit to worry
