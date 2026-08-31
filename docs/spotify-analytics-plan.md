@@ -1,7 +1,11 @@
 # Spotify Analytics Admin Page — Design Plan
 
-Status: **proposed**. Nothing is built yet; see [Open questions](#open-questions)
-for the forks that should be settled before code lands.
+Status: **proposed, pending a compliance decision**. Nothing is built yet.
+[§1.1a](#11a-is-this-against-spotifys-rules) and
+[open question 1](#open-questions) are the ones to resolve first — the primary
+data source scoped below is scraping and unauthorized access under Spotify's
+own terms, and which of the three paths there you pick changes most of what
+follows.
 
 Goal: `/admin/spotify` — one page that answers "how is WOMP doing on Spotify?"
 the way Songstats does. Numbers that move, over time, with enough context to
@@ -18,9 +22,20 @@ tool being asked for.
 
 ## Decisions
 
+**A compliance note before anything else:** the primary data source below
+(Tier 1) involves scraping an access token and calling an internal API that
+Spotify has not licensed for third-party use. That is scraping and
+unauthorized access under Spotify's own User Guidelines and Developer Terms,
+full stop — not a gray area, and not something either party can consent
+around after the fact. Read [§1.1a](#11a-is-this-against-spotifys-rules)
+before treating anything else in this document as settled. This is not merely
+one more row in the decisions table; it is a decision you need to make with
+eyes open, and it changes what "Primary data source" below should actually
+say.
+
 | Question | Decision |
 | --- | --- |
-| Primary data source | **The internal `api-partner.spotify.com` Pathfinder API**, which `lib/spotify.ts` already uses for monthly listeners. Verified below: it carries every number this page needs, with **no credentials at all**. |
+| Primary data source | **Pending §1.1a.** As scoped below it's the internal `api-partner.spotify.com` Pathfinder API, which `lib/spotify.ts` already uses for monthly listeners and which carries every number this page needs with no credentials — but see the compliance note above before treating this as decided. |
 | Official Web API role | **Optional overlay, never a dependency.** Spotify's Feb 2026 Dev Mode changes remove `artist.followers`, `artist.popularity`, `track.popularity`, and `GET /artists/{id}/top-tracks` outright. Anything sourced only from there is on borrowed time. |
 | History | **Daily snapshots into Postgres.** Full copy of every metric each capture day, never mutated. Volume is ~45 rows/day, so there is no reason to be clever. |
 | Render path | **Reads Postgres only.** The page never calls Spotify. A manual "Refresh" button exists but is not how the page normally loads. |
@@ -39,10 +54,12 @@ Everything in Tier 1 and Tier 2 was **verified live against
 script with no Spotify credentials in the environment. Real values are quoted
 so the schema below is sized against reality rather than guesses.
 
-### 1.1 Tier 1 — the partner API (free, no credentials, undocumented)
+### 1.1 Tier 1 — the partner API (free, no credentials, against the rules)
 
 One anonymous bearer token scraped from the public embed page unlocks all of
-this. `lib/spotify.ts` already does exactly this for the homepage.
+this. `lib/spotify.ts` already does exactly this for the homepage — which is
+relevant context, not a defense; see §1.1a immediately below before reading
+this as "therefore fine."
 
 | Query | What it returns | Verified value |
 | --- | --- | --- |
@@ -59,7 +76,78 @@ this. `lib/spotify.ts` already does exactly this for the homepage.
 | `queryAlbumTracks` | Per-track lifetime `playcount` for *any* release | 11 tracks, **343,000 lifetime streams** total |
 | `fetchPlaylist` | Playlist name, owner, **follower count** — including Spotify-owned editorial playlists | *Sub Low* (Spotify editorial) **391,186 followers**; *Songs that go "womp"* **13,472** |
 
-Two things there matter more than they look.
+#### 1.1a Is this against Spotify's rules?
+
+Yes. Plainly, and on more than one document.
+
+Spotify's **User Guidelines** (govern anyone using open.spotify.com, not just
+registered developers) prohibit:
+
+> "crawling" or "scraping", whether manually or by automated means, or
+> otherwise using any automated means (including bots, scrapers, and
+> spiders), to view, access or collect information...
+
+The **Spotify Developer Terms** separately prohibit facilitating
+"unauthorized access to the Spotify Service," including using "any robot,
+spider, site search/retrieval application, or other tool to retrieve,
+duplicate, or index any portion of the Spotify Service or Spotify Content,"
+and obtaining access other than "through the means specifically provided for
+by the Spotify Platform."
+
+Tier 1 does exactly what both describe: it fetches the embed page
+programmatically, scrapes an access token out of the HTML that exists only to
+authenticate a browser's web-player session, and uses it to call an internal
+GraphQL API Spotify has never published or licensed for third-party use.
+Nothing about the data being *our own* artist changes that — the violation is
+in the access method, not in what's read.
+
+What actually follows from that, soberly:
+
+- **This is not a new risk this plan introduces.** `lib/spotify.ts` already
+  does this, in production, for the homepage's monthly-listeners figure. This
+  plan would scale that up materially: a daily cron instead of an
+  hourly-cached page render, and several more query types (full discography,
+  every playlist, related artists) instead of one. So the honest framing is
+  "an already-accepted violation, meaningfully increased," not "clean before,
+  risky now."
+- **The realistic enforcement lever is technical, not contractual.** The
+  bearer token is anonymous — there is no Spotify developer account or user
+  account tied to these requests for Spotify to suspend or ban. What they can
+  do, and periodically do anyway, is rate-limit or block the requesting IPs,
+  or change the internal API's schema and query hashes to break third-party
+  use of it (§2.4 already treats that as a maintenance cost). That is a
+  service-availability risk, not — as far as I can tell — a path to Spotify
+  terminating the registered `SPOTIFY_CLIENT_ID` app, since the two are not
+  authenticated together. That is a technical read of the mechanics, not a
+  legal opinion, and it does not make the access authorized.
+- **This is a live enforcement priority for Spotify right now, not a dormant
+  clause.** The company named "automation" explicitly as the reason for the
+  February 2026 Developer Mode lockdown, and is currently in litigation with
+  the major labels against Anna's Archive over unauthorized bulk scraping of
+  its catalog. Undocumented-API scraping is squarely the behavior they are
+  organizationally focused on curbing at the moment.
+
+This is genuinely your call, not mine, and it changes what the rest of this
+document should say. Three honest paths, expanded in
+[open question 1](#open-questions):
+
+1. **Accept it, same as today.** Ship the plan as scoped. The dataset is the
+   best one available and nothing here is materially riskier in kind than
+   what already runs on the homepage — only in degree.
+2. **Cap the increase.** Keep using the partner API only for what the
+   homepage already fetches (artist stats, top tracks), and don't add the
+   discography walk, per-track playcount capture, or playlist-follower
+   lookups that go meaningfully beyond current usage.
+3. **Drop Tier 1 for this feature.** Build the admin page on Tier 2 (official,
+   licensed, but shrinking — §1.2) and whatever you're willing to export by
+   hand from Spotify for Artists (§1.3). Substantially less data, especially
+   no history-free-and-clear catalog total or playlist reach, but nothing
+   beyond what Spotify has actually agreed to give a developer.
+
+Everything below assumes option 1 for the sake of having something concrete
+to react to — not because it's the recommended choice.
+
+Two things there matter more than they look, if you do proceed with Tier 1.
 
 **Full-catalog playcounts, not just the top 10.** `queryArtistOverview` alone
 gives 10 tracks. Walking `queryArtistDiscographyAll` → `queryAlbumTracks` gives
@@ -416,17 +504,23 @@ before the first cron run and the page starts with real trends. That is
 
 ### 2.10 Terms and privacy
 
-The partner API is undocumented and unsupported. What we do with it: read public
-data about our own artist, roughly 40 requests once a day, from a server, with a
-normal user agent, and cache it in our own database. The homepage already does a
-smaller version of this. We are not proxying it to the public, not scraping
-other artists at scale, and not building a product on top of it.
+The full assessment is in [§1.1a](#11a-is-this-against-spotifys-rules); the
+short version restated here so it isn't missed on a skim: Tier 1 is scraping
+and unauthorized access under Spotify's own User Guidelines and Developer
+Terms, not merely "undocumented." What we'd be doing — reading public data
+about our own artist, on a daily cron, with a scraped anonymous token, cached
+in our own database — is a larger version of what `lib/spotify.ts` already
+does for the homepage, and it is still the thing those documents prohibit,
+regardless of scale or intent. It is not proxied to the public and not used
+to scrape other artists at scale, which bounds the exposure but does not
+change the compliance answer.
 
-No personal data is involved — every field is about WOMP, not about listeners.
-The privacy policy does not change.
+No personal data is involved — every field is about WOMP, not about
+listeners. The privacy policy does not change regardless of which path is
+chosen.
 
-Tier 3 (§1.3) is where the risk profile changes, and it is deliberately not in
-this plan.
+Tier 3 (§1.3) is a further step up in risk — a logged-in session cookie
+instead of an anonymous one — and is deliberately not in this plan.
 
 ---
 
@@ -453,22 +547,32 @@ is collecting.
 ## Open questions
 
 These change what gets built, so they are worth answering before step 1.
+Question 1 gates everything else — the rest of this list assumes an answer to
+it.
 
-1. **Spotify for Artists.** Do you want demographics, source-of-streams, saves,
+1. **Tier 1, knowingly.** [§1.1a](#11a-is-this-against-spotifys-rules) lays out
+   that the primary data source is scraping and unauthorized access under
+   Spotify's own terms, not a gray area, and offers three paths: accept it at
+   the scale this plan proposes, cap it at roughly today's homepage usage, or
+   drop it and rebuild the page on Tier 2 + manual Tier 3 exports only. Which one?
+   This decides almost everything downstream — the schema, the cron, and how
+   much of §2 even applies.
+2. **Spotify for Artists.** Do you want demographics, source-of-streams, saves,
    and listener segments (§1.3)? The automated route means storing an `sp_dc`
-   session cookie for your Spotify account — fragile, against S4A's terms, and a
-   real credential in env vars. The manual route is a CSV you export and upload.
-   Or we skip the tier entirely. Default if you don't care: skip.
-2. **Existing history.** Do you have a Songstats / Chartmetric / Soundcharts
+   session cookie for your Spotify account — fragile, against S4A's terms (a
+   further step up from question 1, not the same risk), and a real credential
+   in env vars. The manual route is a CSV you export and upload. Or we skip the
+   tier entirely. Default if you don't care: skip.
+3. **Existing history.** Do you have a Songstats / Chartmetric / Soundcharts
    account, or old S4A exports? If yes, the page has real trend lines on day one
    instead of in a month, and it's worth a one-off import script.
-3. **Charts.** Hand-rolled SVG (my recommendation, §2.8) or add Recharts? Only
+4. **Charts.** Hand-rolled SVG (my recommendation, §2.8) or add Recharts? Only
    matters if you expect to want chart types beyond lines and bars.
-4. **Scope.** Spotify-only, or should this be `/admin/analytics` with SoundCloud,
+5. **Scope.** Spotify-only, or should this be `/admin/analytics` with SoundCloud,
    Instagram, and gate-unlock conversion folded in as sibling sections? Cheap to
    decide now, annoying to retrofit — it changes the route, the nav, and the
    table names.
-5. **The Spotify app registration.** Is `SPOTIFY_CLIENT_ID` a pre-Nov-2024 app,
+6. **The Spotify app registration.** Is `SPOTIFY_CLIENT_ID` a pre-Nov-2024 app,
    an extended-quota app, or one registered recently? This decides whether
    popularity — artist and per-track — still comes back (§1.2). I can't test it
    from here: the anonymous web-player token that unlocks the partner API is
@@ -485,14 +589,15 @@ These change what gets built, so they are worth answering before step 1.
 
    A number means we capture it. `null` or a missing key means the field is
    already gone and the tracks table drops the column. The design works either
-   way — playcount, not popularity, is the backbone.
-6. **Cadence and cron budget.** Daily at 06:00 UTC is planned; the underlying
+   way — playcount, not popularity, is the backbone. This uses the official,
+   licensed client-credentials flow, unlike the check in question 1.
+7. **Cadence and cron budget.** Daily at 06:00 UTC is planned; the underlying
    numbers only move daily, so hourly would add 24× the requests and no signal.
    This would be the fourth entry in `vercel.json` — any plan limit to worry
    about?
-7. **Alerts.** The capture job will alert to Discord when it fails. Do you also
+8. **Alerts.** The capture job will alert to Discord when it fails. Do you also
    want it to alert on good news — playlist adds, milestone crossings — or keep
    that in the page only?
-8. **Backup.** Once this runs for a year, the Postgres rows are the only copy of
+9. **Backup.** Once this runs for a year, the Postgres rows are the only copy of
    history that cannot be recreated. Want a weekly JSON dump to Vercel Blob as
    insurance?
