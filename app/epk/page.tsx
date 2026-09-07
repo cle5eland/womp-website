@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     title: "womp — Electronic press kit",
     description:
       "Dubstep producer & DJ — press, streaming, photos, and booking.",
-    url: "https://djwomp.com/epk",
+    url: "https://www.djwomp.com/epk",
   },
 };
 
