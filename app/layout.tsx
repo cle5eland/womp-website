@@ -23,6 +23,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.djwomp.com"),
   title: {
     default: "womp",
     template: "%s · womp",
@@ -31,7 +32,12 @@ export const metadata: Metadata = {
   openGraph: {
     title: "womp",
     description: "Dubstep producer & DJ — Seattle.",
-    url: "https://djwomp.com/",
+    url: "https://www.djwomp.com/",
+    siteName: "womp",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
   },
 };
 

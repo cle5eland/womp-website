@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "womp",
     description: "Dubstep producer & DJ — shows and new music.",
-    url: "https://djwomp.com/",
+    url: "https://www.djwomp.com/",
   },
 };
 
